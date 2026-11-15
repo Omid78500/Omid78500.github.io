@@ -3,7 +3,7 @@
 import fs from "node:fs";
 const DIR="btc/paper", CFG_F=`${DIR}/config.json`, ST_F=`${DIR}/state.json`, TR_F=`${DIR}/trades.json`;
 const ALP="https://paper-api.alpaca.markets/v2";  // paper only, by design
-const KEY=process.env.ALPACA_KEY_ID, SEC=process.env.ALPACA_SECRET_KEY;
+const KEY=(process.env.ALPACA_KEY_ID||"").trim(), SEC=(process.env.ALPACA_SECRET_KEY||"").trim();
 const TFL={5:"5m",10:"10m",15:"15m",60:"1h"};
 const readJ=(f,d)=>{try{return JSON.parse(fs.readFileSync(f,"utf8"));}catch(e){return d;}};
 const cfg=Object.assign({enabled:true,cap:100,perTrade:100,tf:15,sensitivity:5,slAtr:1.5,rr:2},readJ(CFG_F,{}));
@@ -159,6 +159,7 @@ function save(st,trades){
   if(fp(st)!==fp(old)||stale){fs.mkdirSync(DIR,{recursive:true});fs.writeFileSync(ST_F,JSON.stringify(st,null,1));fs.writeFileSync(TR_F,JSON.stringify(trades.slice(0,500),null,1));console.log("state saved");}
   else console.log("no change; not saving");
 }
-main().catch(e=>{console.error("BOT ERROR:",e.message);const st=readJ(ST_F,{}),msg="خطا: "+e.message.slice(0,200);
+main().catch(e=>{console.error("BOT ERROR:",e.message);const st=readJ(ST_F,{});let msg="خطا: "+e.message.slice(0,200);
+  if(e.status===401||e.status===403)msg=`کلیدها را Alpaca قبول نکرد (${e.status}). بررسی: Key با «${(KEY||"").trim().slice(0,2)}» شروع می‌شود و ${(KEY||"").length} حرف دارد؛ Secret ${(SEC||"").length} حرف دارد${/\s/.test((KEY||"")+(SEC||""))?" و فاصلهٔ اضافه دارد":""}.`;
   if(st.message!==msg)st.log=[{t:Date.now(),m:msg},...(st.log||[])].slice(0,30);st.status="error";st.message=msg;st.lastRun=Date.now();
   save(st,readJ(TR_F,[]));process.exitCode=0;});
