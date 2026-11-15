@@ -1,0 +1,18 @@
+{
+ "pos": null,
+ "lastBar": 0,
+ "lastSignal": 0,
+ "lastRun": 1794727023457,
+ "log": [],
+ "config": {
+  "enabled": true,
+  "cap": 100,
+  "perTrade": 100,
+  "tf": 15,
+  "sensitivity": 5,
+  "slAtr": 1.5,
+  "rr": 2
+ },
+ "status": "no_keys",
+ "message": "کلیدهای Alpaca هنوز در GitHub Secrets ثبت نشده‌اند."
+}
