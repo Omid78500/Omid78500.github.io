@@ -2,8 +2,12 @@
  "pos": null,
  "lastBar": 0,
  "lastSignal": 0,
- "lastRun": 1794737953628,
+ "lastRun": 1794738487160,
  "log": [
+  {
+   "t": 1794738487160,
+   "m": "کلیدها را Alpaca قبول نکرد (401). بررسی: Key با «PK» شروع می‌شود و 26 حرف دارد؛ Secret 30 حرف دارد."
+  },
   {
    "t": 1794737953628,
    "m": "خطا: 401 {\"message\": \"unauthorized.\"}\n"
@@ -19,5 +23,5 @@
   "rr": 2
  },
  "status": "error",
- "message": "خطا: 401 {\"message\": \"unauthorized.\"}\n"
+ "message": "کلیدها را Alpaca قبول نکرد (401). بررسی: Key با «PK» شروع می‌شود و 26 حرف دارد؛ Secret 30 حرف دارد."
 }
