@@ -8,7 +8,7 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>تحلیل‌گر بازار Up/Down بیت‌کوین</title>
+<title>تحلیل‌گر بازار Up/Down کریپتو</title>
 <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#0b0f14;--card:#141a21;--card2:#0f141a;--line:#2a323c;--txt:#e6edf3;--mut:#8b949e;--up:#00d68f;--dn:#ff4757;--acc:#f7931a;--blue:#58a6ff}
@@ -52,16 +52,18 @@ canvas{width:100%;display:block}
 table{width:100%;border-collapse:collapse;font-size:13px}
 td,th{padding:6px 4px;border-bottom:1px solid var(--line);text-align:right}
 th{color:var(--mut);font-weight:600;font-size:12px}
+.assets{display:flex;gap:6px;margin-bottom:10px}.ab{flex:1;padding:8px;font-weight:700}.ab.on{background:var(--acc);color:#111;border-color:var(--acc)}
 .warn{border-color:#9e6a03;background:#231b05;font-size:14px}
 </style>
 </head>
 <body>
 <div class="wrap">
-<div class="top"><h1>🎯 تحلیل‌گر Up / Down بیت‌کوین</h1><a href="./">← سیگنال‌یاب</a></div>
+<div class="top"><h1>🎯 تحلیل‌گر Up / Down</h1><a href="./">← سیگنال‌یاب</a></div>
 <div class="small" id="feed">در حال اتصال به صرافی‌ها…</div>
 
 <div class="card">
   <h3>۱. اسکرین‌شات بازار را بده</h3>
+  <div class="assets" id="assets"></div>
   <label class="drop" for="file">📷 <b>انتخاب اسکرین‌شات</b><br><span class="small">تارگت، زمان باقی‌مانده و درصد Up/Down خودکار خوانده می‌شود</span></label>
   <input type="file" id="file" accept="image/*" style="display:none">
   <img id="prev" alt="">
@@ -72,7 +74,7 @@ th{color:var(--mut);font-weight:600;font-size:12px}
 <div class="card">
   <h3>۲. اعداد را چک کن</h3>
   <div class="f2">
-    <div><label>قیمت تارگت ($)</label><input id="K" type="text" inputmode="decimal" placeholder="64481.20"></div>
+    <div><label>قیمت تارگت ($)</label><input id="K" type="text" inputmode="decimal" placeholder="64481.20 یا 0.9523"></div>
     <div><label>زمان باقی‌مانده (دقیقه:ثانیه)</label><input id="T" type="text" inputmode="numeric" placeholder="12:43"></div>
     <div><label>قیمت Up بازار (٪)</label><input id="pu" type="text" inputmode="decimal" placeholder="24"></div>
     <div><label>قیمت Down بازار (٪)</label><input id="pd" type="text" inputmode="decimal" placeholder="76"></div>
@@ -141,27 +143,35 @@ function Phi(x){const t=1/(1+0.2316419*Math.abs(x)),d=0.3989422804*Math.exp(-x*x
   p=d*t*(0.3193815+t*(-0.3565638+t*(1.781478+t*(-1.821256+t*1.330274))));return x>0?1-p:p;}
 
 /* ===== live data ===== */
+const ASSETS={BTC:{cb:"BTC-USD",kr:"XBTUSD",bs:"btcusd",gm:"btcusd",dp:2,vol:0.0006},ETH:{cb:"ETH-USD",kr:"ETHUSD",bs:"ethusd",gm:"ethusd",dp:2,vol:0.0008},
+  SOL:{cb:"SOL-USD",kr:"SOLUSD",bs:"solusd",gm:"solusd",dp:3,vol:0.001},XRP:{cb:"XRP-USD",kr:"XRPUSD",bs:"xrpusd",gm:"xrpusd",dp:4,vol:0.001}};
+let AS=store.get("asset","BTC");if(!ASSETS[AS])AS="BTC";
+const fp=(v,a)=>fmt(v,ASSETS[a||AS].dp);
 const L={prices:{},S:null,candles:[],book:null,hist:[],ok:false};
+function renderAssets(){$("assets").innerHTML=Object.keys(ASSETS).map(a=>`<button class="ab ${a===AS?"on":""}" data-a="${a}">${a}</button>`).join("");
+  document.querySelectorAll(".ab").forEach(b=>b.onclick=()=>setAsset(b.dataset.a));}
+function setAsset(a){if(!ASSETS[a])return;const ch=a!==AS;AS=a;store.set("asset",a);renderAssets();
+  if(ch){Object.assign(L,{prices:{},S:null,candles:[],book:null,hist:[],ok:false});RUN=null;$("out").style.display="none";tick();slow();}}
 async function getJ(u,ms=5000){const c=new AbortController(),t=setTimeout(()=>c.abort(),ms);try{const r=await fetch(u,{signal:c.signal});if(!r.ok)throw 0;return await r.json();}finally{clearTimeout(t);}}
-async function tick(){
+async function tick(){const A=ASSETS[AS],asAt=AS;
   const jobs=[
-    ["Coinbase",getJ("https://api.exchange.coinbase.com/products/BTC-USD/ticker").then(j=>+j.price)],
-    ["Kraken",getJ("https://api.kraken.com/0/public/Ticker?pair=XBTUSD").then(j=>+Object.values(j.result)[0].c[0])],
-    ["Bitstamp",getJ("https://www.bitstamp.net/api/v2/ticker/btcusd/").then(j=>+j.last)],
-    ["Gemini",getJ("https://api.gemini.com/v1/pubticker/btcusd").then(j=>+j.last)]];
-  const res=await Promise.allSettled(jobs.map(x=>x[1]));
-  res.forEach((r,i)=>{if(r.status==="fulfilled"&&isFinite(r.value)&&r.value>1000)L.prices[jobs[i][0]]={p:r.value,t:Date.now()};else delete L.prices[jobs[i][0]];});
+    ["Coinbase",getJ(`https://api.exchange.coinbase.com/products/${A.cb}/ticker`).then(j=>+j.price)],
+    ["Kraken",getJ(`https://api.kraken.com/0/public/Ticker?pair=${A.kr}`).then(j=>+Object.values(j.result)[0].c[0])],
+    ["Bitstamp",getJ(`https://www.bitstamp.net/api/v2/ticker/${A.bs}/`).then(j=>+j.last)],
+    ["Gemini",getJ(`https://api.gemini.com/v1/pubticker/${A.gm}`).then(j=>+j.last)]];
+  const res=await Promise.allSettled(jobs.map(x=>x[1]));if(asAt!==AS)return;
+  res.forEach((r,i)=>{if(r.status==="fulfilled"&&isFinite(r.value)&&r.value>0)L.prices[jobs[i][0]]={p:r.value,t:Date.now()};else delete L.prices[jobs[i][0]];});
   const ps=Object.values(L.prices).map(x=>x.p).sort((a,b)=>a-b);
   if(ps.length){L.S=ps.length%2?ps[(ps.length-1)/2]:(ps[ps.length/2-1]+ps[ps.length/2])/2;L.ok=true;
     L.hist.push({t:Date.now(),p:L.S});L.hist=L.hist.filter(h=>Date.now()-h.t<20*6e4);
-    $("feed").textContent=`🟢 زنده از ${fa(ps.length)} صرافی (${Object.keys(L.prices).join("، ")}) · BTC $${fmt(L.S)}`;}
+    $("feed").textContent=`🟢 زنده از ${fa(ps.length)} صرافی (${Object.keys(L.prices).join("، ")}) · ${AS} $${fp(L.S)}`;}
   else{L.ok=false;$("feed").textContent="🔴 اتصال به صرافی‌ها برقرار نشد. اینترنت را چک کن؛ تا وصل نشود قیمت اسکرین‌شات استفاده می‌شود.";}
   if(RUN)analyze(false);
 }
 async function slow(){
-  try{const c=await getJ("https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=60",7000);
+  try{const c=await getJ(`https://api.exchange.coinbase.com/products/${ASSETS[AS].cb}/candles?granularity=60`,7000);
     L.candles=c.map(r=>({t:r[0]*1000,o:r[3],h:r[2],l:r[1],c:r[4],v:r[5]})).sort((a,b)=>a.t-b.t);}catch(e){}
-  try{const b=await getJ("https://api.exchange.coinbase.com/products/BTC-USD/book?level=2",7000);L.book=b;}catch(e){}
+  try{const b=await getJ(`https://api.exchange.coinbase.com/products/${ASSETS[AS].cb}/book?level=2`,7000);L.book=b;}catch(e){}
   checkLog();
 }
 setInterval(tick,3000);setInterval(slow,45000);tick();slow();
@@ -196,7 +206,7 @@ function analyze(first){
   const left=Math.max(0,(R.end-Date.now())/1000),T=left/60;
   $("cd").textContent=left>0?`⏱ ${Math.floor(left/60)}:${String(Math.floor(left%60)).padStart(2,"0")} تا پایان · ${L.ok?"احتمال‌ها هر ۳ ثانیه با قیمت زنده به‌روز می‌شوند":"بدون قیمت زنده"}`:"⏹ زمان این بازار تمام شد";
   if(!isFinite(S)){$("vText").textContent="قیمت فعلی نامعلوم";$("vSub").textContent="اتصال زنده نیست؛ قیمت فعلی را از اسکرین‌شات وارد کن.";return;}
-  const V=volPerMin(),sig=V?V.s:0.0006,M=momentum(S),ob=obi(S),why=[];
+  const V=volPerMin(),sig=V?V.s:ASSETS[AS].vol,M=momentum(S),ob=obi(S),why=[];
   let mu=M.mu;if(ob!=null)mu+=0.00001*ob;
   if(T>0){const cap=0.3*sig/Math.sqrt(T);mu=Math.max(-cap,Math.min(cap,mu));} // momentum may shift z by at most 0.3
   let fu;if(T<=0)fu=S>=R.K?1:0;else{const z=(Math.log(S/R.K)+mu*T)/(sig*Math.sqrt(T));fu=Phi(z);}
@@ -206,16 +216,18 @@ function analyze(first){
   const evU=fu*R.mu-1,evD=fd*R.md-1;
   // verdict
   let side=0;const MIN=0.05;
-  if(isFinite(evU)&&evU>MIN&&evU>=evD)side=1;else if(isFinite(evD)&&evD>MIN)side=-1;
+  const LONG=0.10;let longshot=false;
+  if(isFinite(evU)&&evU>MIN&&evU>=evD){if(fu>=LONG)side=1;else longshot=true;}
+  else if(isFinite(evD)&&evD>MIN){if(fd>=LONG)side=-1;else longshot=true;}
   const vb=$("vbox");vb.className="verdict "+(side===1?"up":side===-1?"down":"skip");
   $("vText").textContent=side===1?"UP بخر ▲":side===-1?"DOWN بخر ▼":"شرط نبند ✋";
   const best=Math.max(evU,evD);
-  $("vSub").textContent=side?`ارزش مورد انتظار: ${best>=0?"+":""}${pct(best)} به ازای هر دلار`:(isFinite(best)?`هیچ طرف ارزش ندارد (بهترین: ${pct(best)}). قیمت بازار تقریباً منصفانه یا گران است.`:"درصدها یا ضریب‌های بازار را وارد کن تا ارزش شرط حساب شود.");
+  $("vSub").textContent=longshot?"طرف ارزان (شانس زیر ۱۰٪) روی کاغذ سود دارد، ولی مدل در این احتمال‌های خیلی کم دقیق نیست. ریسکش نکن.":side?`ارزش مورد انتظار: ${best>=0?"+":""}${pct(best)} به ازای هر دلار`:(isFinite(best)?`هیچ طرف ارزش ندارد (بهترین: ${pct(best)}). قیمت بازار تقریباً منصفانه یا گران است.`:"درصدها یا ضریب‌های بازار را وارد کن تا ارزش شرط حساب شود.");
   $("fu").textContent=pct(fu,0);$("fd").textContent=pct(fd,0);
   $("mkU").textContent=isFinite(R.pu)?`بازار: ${pct(R.pu,0)}`:"";$("mkD").textContent=isFinite(R.pd)?`بازار: ${pct(R.pd,0)}`:"";
   const dist=S-R.K,sdMove=S*sig*Math.sqrt(Math.max(T,1e-9));
-  $("stats").innerHTML=[["قیمت فعلی (میانه صرافی‌ها)","$"+fmt(S)],["تارگت","$"+fmt(R.K)],["فاصله تا تارگت",(dist>=0?"+":"")+fmt(dist)],
-    ["نوسان معمول تا پایان","±$"+fmt(sdMove,0)],["فاصله بر حسب نوسان",fmt(dist/sdMove,2)+"σ"],["بازه احتمال Up",pct(Math.min(lo,hi),0)+" – "+pct(Math.max(lo,hi),0)],
+  $("stats").innerHTML=[["قیمت فعلی (میانه صرافی‌ها)","$"+fp(S)],["تارگت","$"+fp(R.K)],["فاصله تا تارگت",(dist>=0?"+":"")+fp(dist)],
+    ["نوسان معمول تا پایان","±$"+fp(sdMove)],["فاصله بر حسب نوسان",fmt(dist/sdMove,2)+"σ"],["بازه احتمال Up",pct(Math.min(lo,hi),0)+" – "+pct(Math.max(lo,hi),0)],
     ["مومنتوم ۵ دقیقه",pct(M.r5,3)],["مومنتوم ۱۵ دقیقه",pct(M.r15,3)],["فشار دفتر سفارش",ob==null?"—":(ob>=0?"+":"")+fmt(ob*100,0)+"% "+(ob>=0?"خرید":"فروش")]]
     .map(([t,v])=>`<div class="stat"><span>${t}</span><b>${v}</b></div>`).join("");
   // EV & sizing
@@ -226,7 +238,7 @@ function analyze(first){
     ["مبلغ پیشنهادی",side?"$"+fmt(stake):"$0",""],["سقف ریسک","۲٪ موجودی",""]]
     .map(([t,v,c])=>`<div class="stat"><span>${t}</span><b class="${c}">${v}</b></div>`).join("");
   // reasons
-  why.push({c:dist>=0?"pos":"neg",t:`قیمت ${fmt(Math.abs(dist))} دلار ${dist>=0?"بالای":"زیر"} تارگت است؛ یعنی ${fmt(Math.abs(dist/sdMove),2)} برابر نوسان معمول تا پایان.`});
+  why.push({c:dist>=0?"pos":"neg",t:`قیمت ${fp(Math.abs(dist))} دلار ${dist>=0?"بالای":"زیر"} تارگت است؛ یعنی ${fmt(Math.abs(dist/sdMove),2)} برابر نوسان معمول تا پایان.`});
   if(Math.abs(dist/sdMove)<0.3)why.push({c:"neu",t:"قیمت خیلی نزدیک تارگت است؛ نتیجه تقریباً شیر یا خط است."});
   if(Math.abs(dist/sdMove)>1.5)why.push({c:"neu",t:"فاصله از تارگت زیاد است؛ برای برگشت، حرکت غیرعادی لازم است."});
   why.push({c:"neu",t:`نوسان دقیقه‌ای از ${V?fa(L.candles.length):"۰"} کندل ۱ دقیقه‌ای Coinbase: ${pct(sig,3)} در دقیقه${V?"":" (پیش‌فرض، داده نوسان نرسید)"}.`});
@@ -235,12 +247,12 @@ function analyze(first){
   if(isFinite(R.pu)){const diff=fu-R.pu;why.push({c:Math.abs(diff)<0.05?"neu":diff>0?"pos":"neg",
     t:Math.abs(diff)<0.05?`مدل و بازار تقریباً هم‌نظرند (${pct(fu,0)} در برابر ${pct(R.pu,0)})؛ معمولاً یعنی شرط سودی ندارد.`:`مدل احتمال Up را ${pct(fu,0)} می‌بیند و بازار ${pct(R.pu,0)}؛ اختلاف ${pct(Math.abs(diff),0)}.`});}
   if(Object.keys(L.prices).length>1){const ps=Object.values(L.prices).map(x=>x.p);const sp=Math.max(...ps)-Math.min(...ps);
-    why.push({c:"neu",t:`اختلاف قیمت بین صرافی‌ها ${fmt(sp)} دلار. منبع قیمت نهایی بازار شما ممکن است کمی فرق کند؛ وقتی قیمت نزدیک تارگت است، این مهم است.`});}
+    why.push({c:"neu",t:`اختلاف قیمت بین صرافی‌ها ${fp(sp)} دلار. منبع قیمت نهایی بازار شما ممکن است کمی فرق کند؛ وقتی قیمت نزدیک تارگت است، این مهم است.`});}
   if(!L.ok)why.push({c:"neg",t:"قیمت زنده در دسترس نیست؛ تحلیل بر اساس قیمت اسکرین‌شات است و دقتش کمتر است."});
   $("why").innerHTML=why.map(w=>`<li class="${w.c}">${w.t}</li>`).join("");
   drawChart(R,S,sdMove);
   if(first&&!R.logged){R.logged=true;const log=store.get("log",[]);
-    log.unshift({at:Date.now(),end:R.end,K:R.K,fu,pu:R.pu,side,mu:R.mu,md:R.md,res:null});store.set("log",log.slice(0,200));renderLog();}
+    log.unshift({at:Date.now(),end:R.end,K:R.K,asset:AS,fu,pu:R.pu,side,mu:R.mu,md:R.md,res:null});store.set("log",log.slice(0,200));renderLog();}
 }
 
 function drawChart(R,S,sd){const cv=$("chart"),dpr=window.devicePixelRatio||1,w=cv.clientWidth,h=170;cv.width=w*dpr;cv.height=h*dpr;cv.style.height=h+"px";
@@ -252,9 +264,9 @@ function drawChart(R,S,sd){const cv=$("chart"),dpr=window.devicePixelRatio||1,w=
   // cone
   const now=Date.now(),xe=X(R.end);if(R.end>now){g.fillStyle="rgba(88,166,255,.10)";g.beginPath();g.moveTo(X(now),Y(S));g.lineTo(xe,Y(S+sd));g.lineTo(xe,Y(S-sd));g.closePath();g.fill();}
   g.strokeStyle="#f7931a";g.setLineDash([5,4]);g.beginPath();g.moveTo(0,Y(R.K));g.lineTo(w-56,Y(R.K));g.stroke();g.setLineDash([]);
-  g.fillStyle="#f7931a";g.font="11px sans-serif";g.textAlign="left";g.fillText("TARGET "+fmt(R.K,0),w-54,Y(R.K)+4);
+  g.fillStyle="#f7931a";g.font="11px sans-serif";g.textAlign="left";g.fillText("TARGET "+fp(R.K),w-54,Y(R.K)+4);
   g.strokeStyle=S>=R.K?"#00d68f":"#ff4757";g.lineWidth=2;g.beginPath();pts.forEach((x,i)=>i?g.lineTo(X(x.t),Y(x.p)):g.moveTo(X(x.t),Y(x.p)));g.stroke();
-  g.fillStyle="#e6edf3";g.beginPath();g.arc(X(now),Y(S),3.5,0,7);g.fill();g.fillText(fmt(S,0),Math.min(X(now)+6,w-100),Y(S)-6);
+  g.fillStyle="#e6edf3";g.beginPath();g.arc(X(now),Y(S),3.5,0,7);g.fill();g.fillText(fp(S),Math.min(X(now)+6,w-100),Y(S)-6);
   g.strokeStyle="rgba(255,255,255,.3)";g.beginPath();g.moveTo(xe,0);g.lineTo(xe,h-14);g.stroke();g.fillStyle="#8b949e";g.textAlign="center";g.fillText("END",xe,h-2);}
 
 /* ===== OCR ===== */
@@ -269,17 +281,25 @@ $("file").onchange=async e=>{const f=e.target.files[0];if(!f)return;const url=UR
     const got=parseShot(txt);
     $("ocrMsg").innerHTML=got.length?`✓ خوانده شد: ${got.join("، ")}. اعداد را چک کن و «تحلیل کن» را بزن.`:"<span class='neg'>عددی خوانده نشد؛ دستی وارد کن.</span>";
   }catch(err){$("ocrMsg").innerHTML=`<span class="neg">خواندن خودکار نشد (${err.message||err}). اعداد را دستی وارد کن.</span>`;}};
-function parseShot(txt){const got=[],t=txt.replace(/[Oo](?=[\d,.])/g,"0").replace(/S(?=\d{2},\d{3})/g,"$");
-  const big=[...t.matchAll(/(\d{2,3}[,.]\d{3}[.,]\d{2})/g)].map(m=>parseFloat(m[1].replace(/[,.](?=\d{3}[.,])/,"").replace(",",".")));
-  const prices=big.filter(v=>v>1000);
+function parseShot(txt){const got=[],t=txt.replace(/[Oo](?=[\d,.])/g,"0").replace(/S(?=\d)/g,"$"),lines=t.split(/\n/);
+  let asset=null;for(const ln of lines){if(/min/i.test(ln)){const m=ln.match(/(BTC|ETH|SOL|XRP)/i);if(m){asset=m[1].toUpperCase();break;}}}
+  if(!asset){const m=t.match(/\b(BTC|BIC|ETH|SOL|XRP)\b/i);if(m)asset=m[1].toUpperCase().replace("BIC","BTC");}
+  const money=s=>[...s.matchAll(/(\d{1,3}(?:,\d{3})+\.\d{1,6}|\d+\.\d{2,6})/g)].map(m=>parseFloat(m[1].replace(/,/g,"")));
+  let prices=[];const ti=lines.findIndex(l=>/target/i.test(l));
+  if(ti>=0)for(let k=ti+1;k<Math.min(lines.length,ti+4);k++){const v=money(lines[k]);if(v.length>=2){prices=v;break;}}
+  if(!prices.length)prices=[...t.matchAll(/(\d{2,3}[,.]\d{3}[.,]\d{2})/g)].map(m=>parseFloat(m[1].replace(/[,.](?=\d{3}[.,])/,"").replace(",","."))).filter(v=>v>1000);
+  const guess=v=>v>10000?"BTC":v>800?"ETH":v>15?"SOL":"XRP",want=prices.length?guess(prices[0]):null;
+  if(want&&asset&&guess(prices[0])!==asset&&!(asset==="ETH"&&prices[0]>800&&prices[0]<10000)&&!(asset==="SOL"&&prices[0]>15&&prices[0]<800))asset=want;
+  if(!asset)asset=want;
+  if(asset){setAsset(asset);got.push("ارز "+asset);}
   if(prices.length){$("K").value=prices[0];got.push("تارگت");if(prices[1]){$("S0").value=prices[1];got.push("قیمت فعلی");}}
-  const lines=t.split(/\n/);let timer=null;
-  for(const ln of lines){if(/min|BTC|BIC/i.test(ln)){const m=ln.match(/(\d{1,2}):(\d{2})(?!\s*[AP]M)/i)||ln.match(/min\W*(\d{1,2})[.:]?(\d{2})\b/i);if(m){timer=(+m[1])+":"+m[2];break;}}}
+  let timer=null;
+  for(const ln of lines){if(/min|BTC|BIC|ETH|SOL|XRP/i.test(ln)){const m=ln.match(/(\d{1,2}):(\d{2})(?!\s*[AP]M)/i)||ln.match(/min\W*(\d{1,2})[.:]?(\d{2})\b/i);if(m){timer=(+m[1])+":"+m[2];break;}}}
   if(!timer){const all=[...t.matchAll(/(\d{1,2}):(\d{2})(?!\s*[AP]M)/gi)].map(m=>m[0]);timer=all.length>1?all[1]:null;}
   if(timer){$("T").value=timer;got.push("زمان");}
-  const up=t.match(/Up\W{0,4}(\d{1,3})\s*%/i),dn=t.match(/Down\W{0,4}(\d{1,3})\s*%/i);
+  const up=t.match(/Up\W{0,4}(\d{1,3}(?:\.\d+)?)\s*%/i),dn=t.match(/Down\W{0,4}(\d{1,3}(?:\.\d+)?)\s*%/i);
   if(up){$("pu").value=up[1];got.push("درصد Up");}if(dn){$("pd").value=dn[1];got.push("درصد Down");}
-  const xs=[...t.matchAll(/(\d{1,3}[.,]\d{1,2})\s*[xX×]/g)].map(m=>parseFloat(m[1].replace(",",".")));
+  const xs=[...t.matchAll(/(\d{1,4}[.,]\d{1,2})\s*[xX×]/g)].map(m=>parseFloat(m[1].replace(",",".")));
   if(xs.length>=2){$("mu").value=xs[0];$("md").value=xs[1];got.push("ضریب‌ها");}
   return got;}
 
@@ -287,7 +307,7 @@ function parseShot(txt){const got=[],t=txt.replace(/[Oo](?=[\d,.])/g,"0").replac
 async function checkLog(){const log=store.get("log",[]);let ch=false;
   for(const e of log){if(e.res||Date.now()<e.end+90000)continue;
     try{const s=new Date(e.end-120000).toISOString(),en=new Date(e.end+120000).toISOString();
-      const c=await getJ(`https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=60&start=${s}&end=${en}`);
+      const c=await getJ(`https://api.exchange.coinbase.com/products/${ASSETS[e.asset||"BTC"].cb}/candles?granularity=60&start=${s}&end=${en}`);
       const rows=c.map(r=>({t:r[0]*1000,o:r[3],c:r[4]})).sort((a,b)=>a.t-b.t);
       const bar=rows.find(r=>r.t<=e.end&&e.end<r.t+6e4)||rows.filter(r=>r.t<=e.end).pop();
       if(bar){const p=bar.t+6e4-e.end<30000?bar.c:bar.o;e.final=p;e.res=p>=e.K?"UP":"DOWN";ch=true;}}catch(err){}}
@@ -302,7 +322,8 @@ function renderLog(){const log=store.get("log",[]),done=log.filter(e=>e.res);
     .map(([t,v])=>`<div class="stat"><span>${t}</span><b>${v}</b></div>`).join("");
   $("logBody").innerHTML=log.slice(0,30).map(e=>{const sideTxt=e.side===1?'<span class="pos">UP</span>':e.side===-1?'<span class="neg">DOWN</span>':'<span class="neu">رد</span>';
     const r=e.res?(e.side?((e.side===1)===(e.res==="UP")?'<span class="pos">✓ '+e.res+"</span>":'<span class="neg">✗ '+e.res+"</span>"):e.res):'<span class="neu">در انتظار</span>';
-    return`<tr><td>${new Date(e.at).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}</td><td style="direction:ltr">${fmt(e.K,0)}</td><td>${pct(e.fu,0)}</td><td>${sideTxt}</td><td>${r}</td></tr>`;}).join("")||'<tr><td colspan="5" class="neu">هنوز تحلیلی ثبت نشده</td></tr>';}
+    return`<tr><td>${new Date(e.at).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}</td><td style="direction:ltr">${e.asset||"BTC"} ${fp(e.K,e.asset||"BTC")}</td><td>${pct(e.fu,0)}</td><td>${sideTxt}</td><td>${r}</td></tr>`;}).join("")||'<tr><td colspan="5" class="neu">هنوز تحلیلی ثبت نشده</td></tr>';}
+renderAssets();
 $("clearLog").onclick=()=>{store.set("log",[]);renderLog();};
 renderLog();
 window.addEventListener("resize",()=>RUN&&analyze(false));
