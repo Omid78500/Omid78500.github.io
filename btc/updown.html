@@ -75,7 +75,7 @@ th{color:var(--mut);font-weight:600;font-size:12px}
   <h3>۲. اعداد را چک کن</h3>
   <div class="f2">
     <div><label>قیمت تارگت ($)</label><input id="K" type="text" inputmode="decimal" placeholder="64481.20 یا 0.9523"></div>
-    <div><label>زمان باقی‌مانده (دقیقه:ثانیه)</label><input id="T" type="text" inputmode="numeric" placeholder="12:43"></div>
+    <div><label>زمان باقی‌مانده (دقیقه:ثانیه)</label><input id="T" type="text" inputmode="decimal" placeholder="مثلاً 1033 یا 10.33"></div>
     <div><label>قیمت Up بازار (٪)</label><input id="pu" type="text" inputmode="decimal" placeholder="24"></div>
     <div><label>قیمت Down بازار (٪)</label><input id="pd" type="text" inputmode="decimal" placeholder="76"></div>
     <div><label>ضریب پرداخت Up (x)</label><input id="mu" type="text" inputmode="decimal" placeholder="3.96"></div>
@@ -188,14 +188,14 @@ function obi(S){const b=L.book;if(!b||!b.bids)return null;let bv=0,av=0;const ba
   b.bids.forEach(x=>{if(S-+x[0]<=band)bv+=+x[1];});b.asks.forEach(x=>{if(+x[0]-S<=band)av+=+x[1];});return bv+av?(bv-av)/(bv+av):null;}
 
 let RUN=null;
-function readInputs(){const K=num($("K").value),tm=$("T").value.trim().match(/^(\d{1,3})(?::(\d{1,2}))?$/);
+function readInputs(){const K=num($("K").value),tv=$("T").value.trim().replace(/[٠-٩۰-۹]/g,d=>"0123456789"["٠١٢٣٤٥٦٧٨٩".indexOf(d)+1?"٠١٢٣٤٥٦٧٨٩".indexOf(d):"۰۱۲۳۴۵۶۷۸۹".indexOf(d)]),tm=tv.match(/^(\d{1,3})(?:[:.,\s]+(\d{1,2}))?$/)&&!/^\d{3,4}$/.test(tv)?tv.match(/^(\d{1,3})(?:[:.,\s]+(\d{1,2}))?$/):tv.match(/^(\d{1,2})(\d{2})$/);
   const pu=num($("pu").value)/100,pd=num($("pd").value)/100;let mu=num($("mu").value),md=num($("md").value);
   const ppu=isFinite(pu)?pu:isFinite(pd)?1-pd:NaN,ppd=isFinite(pd)?pd:isFinite(pu)?1-pu:NaN;
   if(!isFinite(mu)&&ppu>0)mu=1/ppu;if(!isFinite(md)&&ppd>0)md=1/ppd;
   return{K,secs:tm?(+tm[1])*60+(+(tm[2]||0)):NaN,pu:ppu,pd:ppd,mu,md,S0:num($("S0").value),bank:num($("bank").value)};}
 $("go").onclick=()=>{const I=readInputs();
   if(!isFinite(I.K)){alertMsg("قیمت تارگت را وارد کن");return;}
-  if(!isFinite(I.secs)){alertMsg("زمان باقی‌مانده را به شکل 12:43 وارد کن");return;}
+  if(!isFinite(I.secs)){alertMsg("زمان باقی‌مانده را وارد کن؛ مثلاً 10:33 را بنویس 1033 یا 10.33");return;}
   store.set("bank",$("bank").value);
   RUN={...I,end:Date.now()+I.secs*1000,logged:false};$("out").style.display="block";analyze(true);
   setTimeout(()=>$("out").scrollIntoView({behavior:"smooth"}),50);};
