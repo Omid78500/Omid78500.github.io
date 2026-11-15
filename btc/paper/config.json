@@ -1,0 +1,9 @@
+{
+  "enabled": true,
+  "cap": 100,
+  "perTrade": 100,
+  "tf": 15,
+  "sensitivity": 5,
+  "slAtr": 1.5,
+  "rr": 2
+}

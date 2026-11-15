@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0f14">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>ربات معاملات آزمایشی</title>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b0f14;--card:#141a21;--card2:#0f141a;--line:#2a323c;--txt:#e6edf3;--mut:#8b949e;--up:#22c55e;--dn:#ef4444;--acc:#f7931a;--blue:#58a6ff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font-family:Vazirmatn,Tahoma,sans-serif;font-size:15px;line-height:1.6}
+.wrap{max-width:720px;margin:0 auto;padding:calc(12px + env(safe-area-inset-top)) 12px calc(40px + env(safe-area-inset-bottom))}
+.top{display:flex;justify-content:space-between;align-items:center}h1{font-size:18px;margin:0}.top a{color:var(--blue);font-size:13px;text-decoration:none}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:12px}
+.card h3{margin:0 0 8px;font-size:15px}
+.st{text-align:center;padding:16px;border-radius:16px;margin-top:12px;border:2px solid var(--line)}
+.st .b{font-size:24px;font-weight:800}
+.ok{border-color:var(--up);background:rgba(34,197,94,.1)}.bad{border-color:var(--dn);background:rgba(239,68,68,.1)}.wait{border-color:var(--acc);background:rgba(247,147,26,.1)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
+.stat{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:8px}
+.stat span{font-size:12px;color:var(--mut);display:block}.stat b{font-size:16px;direction:ltr;display:block;text-align:right}
+.pos{color:var(--up)}.neg{color:var(--dn)}.neu{color:var(--mut)}
+table{width:100%;border-collapse:collapse;font-size:13px}td,th{padding:6px 4px;border-bottom:1px solid var(--line);text-align:right}th{color:var(--mut);font-size:12px;font-weight:600}
+.small{font-size:12px;color:var(--mut)}
+ol{padding-right:20px;margin:0}ol li{margin:6px 0}
+a{color:var(--blue)}
+code{background:var(--card2);padding:1px 6px;border-radius:5px;direction:ltr;display:inline-block}
+ul.lg{padding:0 18px 0 0;margin:0}ul.lg li{font-size:13px;margin:3px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="top"><h1>🤖 ربات معاملات آزمایشی (Alpaca دمو)</h1><a href="./">← سیگنال‌یاب</a></div>
+
+<div class="st wait" id="stBox"><div class="b" id="stT">در حال بارگذاری…</div><div class="small" id="stS"></div></div>
+
+<div class="card" id="setup" style="display:none">
+  <h3>⚙️ راه‌اندازی (یک بار)</h3>
+  <ol>
+    <li>در <a href="https://app.alpaca.markets" target="_blank" rel="noopener">app.alpaca.markets</a> وارد شو و مطمئن شو حساب <b>Paper</b> (دمو) انتخاب شده. در صفحه اصلی، بخش <b>API Keys</b>، دکمه <b>Generate New Keys</b> را بزن. دو کلید می‌دهد: <b>Key</b> و <b>Secret</b> (Secret فقط یک بار نشان داده می‌شود).</li>
+    <li>در Safari این صفحه را باز کن: <a href="https://github.com/Omid78500/Omid78500.github.io/settings/secrets/actions/new" target="_blank" rel="noopener">GitHub → New secret</a></li>
+    <li>Name: <code>ALPACA_KEY_ID</code> و در Secret همان Key را بگذار → <b>Add secret</b>.</li>
+    <li>دوباره New secret: Name: <code>ALPACA_SECRET_KEY</code> و در Secret همان Secret را بگذار → <b>Add secret</b>.</li>
+    <li>تمام. ربات حداکثر ۵ دقیقه بعد شروع می‌کند. کلیدها را هیچ‌وقت در چت یا جای دیگر نفرست.</li>
+  </ol>
+</div>
+
+<div class="card"><h3>💼 حساب دمو</h3><div class="grid" id="acct"></div></div>
+<div class="card"><h3>📍 پوزیشن باز</h3><div class="grid" id="pos"></div></div>
+<div class="card"><h3>📊 کارنامه ربات</h3><div class="grid" id="perf"></div></div>
+<div class="card"><h3>📶 آخرین سیگنال</h3><div id="sig" class="small"></div></div>
+<div class="card"><h3>📝 معاملات</h3>
+  <table><thead><tr><th>بسته شد</th><th>ورود</th><th>خروج</th><th>سود/زیان</th><th>دلیل</th></tr></thead><tbody id="tr"></tbody></table></div>
+<div class="card"><h3>🗒 گزارش ربات</h3><ul class="lg" id="log"></ul></div>
+<div class="card small">
+  <b>تنظیمات فعلی:</b> <span id="cfg"></span><br>
+  ربات فقط در حساب <b>دمو</b> Alpaca معامله می‌کند (پول واقعی نیست)، فقط خرید (Long) چون Alpaca فروش استقراضی کریپتو ندارد، هر بار یک معامله، و هیچ‌وقت بیش از سقف. هر ۵ دقیقه در سرور GitHub اجرا می‌شود؛ گوشی لازم نیست روشن باشد. GitHub گاهی اجراها را چند دقیقه دیر می‌اندازد.<br>
+  <a href="https://github.com/Omid78500/Omid78500.github.io/actions/workflows/paper-bot.yml" target="_blank" rel="noopener">صفحه اجراهای ربات در GitHub</a> (برای اجرای فوری: Run workflow)
+</div>
+</div>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const fmt=(v,d=2)=>v==null||!isFinite(v)?"—":Number(v).toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
+const fa=n=>Number(n).toLocaleString("fa-IR");
+const ago=t=>{const m=Math.round((Date.now()-t)/6e4);return m<1?"همین الان":m<60?fa(m)+" دقیقه پیش":m<1440?fa(Math.round(m/60))+" ساعت پیش":fa(Math.round(m/1440))+" روز پیش";};
+const tm=t=>t?new Date(t).toLocaleString("fa-IR",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"}):"—";
+const box=(arr)=>arr.map(([t,v,c])=>`<div class="stat"><span>${t}</span><b class="${c||""}">${v}</b></div>`).join("");
+async function J(f){const r=await fetch(f+"?t="+Date.now(),{cache:"no-store"});if(!r.ok)throw 0;return r.json();}
+async function load(){let st={},tr=[],cfg={};
+  try{st=await J("paper/state.json");}catch(e){}try{tr=await J("paper/trades.json");}catch(e){}try{cfg=await J("paper/config.json");}catch(e){}
+  let px=null;try{px=+(await (await fetch("https://api.exchange.coinbase.com/products/BTC-USD/ticker")).json()).price;}catch(e){}
+  const B=$("stBox");let t,s,c;
+  if(!st.status){t="⏳ ربات هنوز اولین بار اجرا نشده";s="بعد از ثبت کلیدها، حداکثر چند دقیقه طول می‌کشد.";c="wait";$("setup").style.display="block";}
+  else if(st.status==="no_keys"){t="🔑 منتظر کلیدهای Alpaca";s=st.message;c="wait";$("setup").style.display="block";}
+  else if(st.status==="error"){t="⚠️ خطا";s=st.message;c="bad";if(/401|403|unauthor|forbidden/i.test(st.message))$("setup").style.display="block";}
+  else if(st.status==="paused"){t="⏸ ربات خاموش است";s=st.message;c="wait";}
+  else{t="✅ ربات فعال است";s="";c="ok";}
+  if(st.lastRun){const late=Date.now()-st.lastRun>70*6e4;s+=(s?" · ":"")+"آخرین گزارش: "+ago(st.lastRun)+(late?" (دیر شده؛ صفحه اجراهای GitHub را چک کن)":"");if(late&&c==="ok")c="wait";}
+  $("stT").textContent=t;$("stS").textContent=s;B.className="st "+c;
+  const a=st.account||{};$("acct").innerHTML=box([["ارزش کل حساب","$"+fmt(a.equity)],["نقد","$"+fmt(a.cash)],["سقف ربات","$"+fmt(cfg.cap,0)]]);
+  const p=st.pos,P=st.position;
+  if(P&&P.qty){const cur=px||P.avg,upl=(cur-(p?p.entry:P.avg))*P.qty;
+    $("pos").innerHTML=box([["مقدار",fmt(P.qty,6)+" BTC"],["قیمت ورود","$"+fmt(p?p.entry:P.avg)],["قیمت الان","$"+fmt(cur)],["سود/زیان باز",(upl>=0?"+$":"−$")+fmt(Math.abs(upl)),upl>=0?"pos":"neg"],
+      ["حد ضرر","$"+fmt(p&&p.stop)],["حد سود","$"+fmt(p&&p.tp)],["باز شده",p&&p.at?tm(p.at):"—"]]);}
+  else $("pos").innerHTML='<div class="small">پوزیشن بازی نیست. ربات منتظر سیگنال خرید تازه است.</div>';
+  const n=tr.length,w=tr.filter(x=>x.pnl>0).length,tot=tr.reduce((s,x)=>s+x.pnl,0),best=n?Math.max(...tr.map(x=>x.pnl)):0,worst=n?Math.min(...tr.map(x=>x.pnl)):0;
+  $("perf").innerHTML=box([["تعداد معامله",fa(n)],["برد",n?fa(w)+" از "+fa(n)+" ("+fa(Math.round(w/n*100))+"٪)":"—"],["سود/زیان کل",n?(tot>=0?"+$":"−$")+fmt(Math.abs(tot)):"—",tot>=0?"pos":"neg"],
+    ["بهترین","$"+fmt(best)],["بدترین","$"+fmt(worst)]]);
+  const sg=st.signal;
+  $("sig").innerHTML=sg?`<b class="${sg.sig===1?"pos":sg.sig===-1?"neg":"neu"}">${sg.sig===1?"بخر":sg.sig===-1?"بفروش":"صبر کن"}</b> · امتیاز ${fmt(sg.score,1)} · کندل ${tm(sg.bar)}<ul class="lg" style="margin-top:6px">${(sg.reasons||[]).map(r=>`<li class="${r.p>0?"pos":r.p<0?"neg":"neu"}">${r.t}</li>`).join("")}</ul>`:"—";
+  $("tr").innerHTML=tr.slice(0,50).map(x=>`<tr><td>${tm(x.closeAt)}</td><td style="direction:ltr">${fmt(x.entry,0)}</td><td style="direction:ltr">${fmt(x.exit,0)}</td><td class="${x.pnl>=0?"pos":"neg"}" style="direction:ltr">${x.pnl>=0?"+":""}${fmt(x.pnl)}</td><td>${x.reason}</td></tr>`).join("")||'<tr><td colspan="5" class="neu">هنوز معامله‌ای بسته نشده</td></tr>';
+  $("log").innerHTML=(st.log||[]).map(l=>`<li>${tm(l.t)} — ${l.m}</li>`).join("")||'<li class="neu">خالی</li>';
+  $("cfg").textContent=cfg.cap?`سقف $${cfg.cap} · هر معامله تا $${cfg.perTrade} · تایم‌فریم ${cfg.tf} دقیقه · حساسیت ${cfg.sensitivity} · حد ضرر ${cfg.slAtr}×ATR · سود به ضرر 1:${cfg.rr} · ${cfg.enabled?"روشن":"خاموش"}`:"—";
+}
+load();setInterval(load,60000);
+if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{});}
+</script>
+</body>
+</html>
