@@ -99,6 +99,8 @@ a{color:var(--blue);word-break:break-all;font-size:12px}
       <select id="rr"><option value="1.5">1 : 1.5</option><option value="2" selected>1 : 2</option><option value="3">1 : 3</option></select></div>
     <div style="flex:1;min-width:120px"><label>فاصله حد ضرر (× ATR)</label>
       <select id="slm"><option value="1">1.0</option><option value="1.5" selected>1.5</option><option value="2">2.0</option></select></div>
+    <div style="flex:1;min-width:120px"><label>حساسیت سیگنال</label>
+      <select id="th" style="direction:rtl"><option value="6">محافظه‌کار (سیگنال کمتر)</option><option value="5" selected>معمولی</option><option value="3.5">تهاجمی (سیگنال بیشتر)</option></select></div>
   </div>
 </div>
 
@@ -168,11 +170,11 @@ a{color:var(--blue);word-break:break-all;font-size:12px}
 "use strict";
 const $=id=>document.getElementById(id);
 const TFS=[5,10,15,60], TFL={5:"۵ دقیقه",10:"۱۰ دقیقه",15:"۱۵ دقیقه",60:"۱ ساعت"}, HTF={5:15,10:60,15:60,60:null};
-const TH=5, MAXS=14;
+let TH=5;const MAXS=14;
 let DS={}, tf=15, source="", isLive=false, liveTimer=null, alertOn=false, useClosed=true, audioCtx=null, lastSig={}, nVis=90, hoverI=null, VIEW=null;
 const store={get(k,d){try{const v=localStorage.getItem("btcsig_"+k);return v==null?d:JSON.parse(v);}catch(e){return d;}},set(k,v){try{localStorage.setItem("btcsig_"+k,JSON.stringify(v));}catch(e){}}};
 tf=store.get("tf",15);["bal","risk","lev"].forEach(k=>{const v=store.get(k,null);if(v!=null)$(k).value=v;});
-["rr","slm"].forEach(k=>{const v=store.get(k,null);if(v!=null)$(k).value=v;});
+["rr","slm","th"].forEach(k=>{const v=store.get(k,null);if(v!=null)$(k).value=v;});TH=+$("th").value||5;
 
 /* ===== indicators ===== */
 function ema(src,p){const o=Array(src.length).fill(null),k=2/(p+1);let s=0,c=0;
@@ -327,7 +329,7 @@ function render(){
   const S=SIG[sg],conf=Math.min(100,50+(Math.abs(sc.s)-TH)/(MAXS-TH)*50);
   $("sigBox").className="sig "+S.cls;$("sigFa").textContent=S.fa;$("sigEn").textContent=S.en+" · "+TFL[tf];
   $("confBar").style.width=(sg?conf:Math.abs(sc.s)/TH*40)+"%";$("confBar").style.background=sg===1?"var(--up)":sg===-1?"var(--dn)":"#6b7280";
-  $("sigMeta").textContent=`امتیاز ${fmt(sc.s,1)} از ±${fa(MAXS)} · قدرت ${sg?fa(Math.round(conf))+"٪":"زیر آستانه"} · ${since?fa(since)+" کندل است که این سیگنال برقرار است":"سیگنال تازه"}`+(k<cs.length-1?" · بر اساس آخرین کندل بسته‌شده":"");
+  $("sigMeta").textContent=`امتیاز ${fmt(sc.s,1)} از ±${fa(MAXS)} · ${sg?"قدرت "+fa(Math.round(conf))+"٪":"تمایل به "+(sc.s>=0?"خرید":"فروش")+"، "+fmt(Math.max(0,TH-Math.abs(sc.s)),1)+" امتیاز تا سیگنال"} · ${since?fa(since)+" کندل است که این سیگنال برقرار است":"سیگنال تازه"}`+(k<cs.length-1?" · بر اساس آخرین کندل بسته‌شده":"");
   // plan
   const e=X.C[k],a=X.atr[k],risk=slm*a,lv=levels(X,k),dir=sg||(sc.s>=0?1:-1);
   const sl=e-dir*risk,tp1=e+dir*risk,tp2=e+dir*risk*rr;
@@ -412,6 +414,7 @@ function beep(d){try{if(!audioCtx)return;const o=audioCtx.createOscillator(),gn=
 $("btnAlert").onclick=()=>{alertOn=!alertOn;if(alertOn){try{audioCtx=audioCtx||new(window.AudioContext||window.webkitAudioContext)();audioCtx.resume();}catch(e){}beep(1);}
   $("btnAlert").textContent="🔔 هشدار صوتی: "+(alertOn?"روشن":"خاموش");$("btnAlert").classList.toggle("on",alertOn);};
 $("btnClosed").onclick=()=>{useClosed=!useClosed;$("btnClosed").textContent="فقط کندل بسته‌شده: "+(useClosed?"روشن":"خاموش");$("btnClosed").classList.toggle("on",useClosed);render();};
+$("th").addEventListener("input",()=>{TH=+$("th").value;store.set("th",$("th").value);lastSig={};render();});
 ["rr","slm","bal","risk","lev"].forEach(id=>$(id).addEventListener("input",()=>{store.set(id,$(id).value);render();}));
 
 /* ===== countdown ===== */
