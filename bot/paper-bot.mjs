@@ -102,6 +102,12 @@ function scoreAt(X,i){const r=[];let s=0;const add=(p,t)=>{s+=p;r.push({p,t});},
 
 const whyOf=sc=>sc?sc.r.filter(r=>r.p!==0||/ADX/.test(r.t)).map(r=>({p:r.p,t:r.t})):[];
 const sigOf=s=>s==null?0:s>=TH?1:s<=-TH?-1:0;
+const EXIT=1; // hysteresis: a signal starts at |score|>=TH and only ends when the score drops back near zero (or flips past -TH)
+function sigSeries(X,k){if(X._ss&&X._ssk===k&&X._sth===TH)return X._ss;const out=Array(k+1).fill(0);let st=0;
+  for(let i=60;i<=k;i++){const sc=scoreAt(X,i),s=sc?sc.s:0;
+    if(st===1){if(s<=-TH)st=-1;else if(s<EXIT)st=0;}else if(st===-1){if(s>=TH)st=1;else if(s>-EXIT)st=0;}else st=s>=TH?1:s<=-TH?-1:0;
+    out[i]=st;}X._ss=out;X._ssk=k;X._sth=TH;return out;}
+
 async function getJ(u,opt={}){const r=await fetch(u,opt);const t=await r.text();if(!r.ok){const e=new Error(`${r.status} ${t.slice(0,200)}`);e.status=r.status;throw e;}return t?JSON.parse(t):null;}
 const alp=(p,opt={})=>getJ(ALP+p,{...opt,headers:{"APCA-API-KEY-ID":KEY,"APCA-API-SECRET-KEY":SEC,"Content-Type":"application/json",...(opt.headers||{})}});
 async function coinbase(gran,pages){let all=[],end=Date.now();
@@ -123,7 +129,7 @@ async function main(){
   const tick=await getJ("https://api.exchange.coinbase.com/products/BTC-USD/ticker",{headers:{"User-Agent":"btc-paper-bot"}}),px=+tick.price;
   // closed bar only
   let k=cs.length-1; if(cs[k].t+tf*6e4>now)k--;
-  const X=ctx(cs,h,tf,htfm),sc=scoreAt(X,k),sg=sigOf(sc&&sc.s),prev=sigOf((scoreAt(X,k-1)||{}).s);
+  const X=ctx(cs,h,tf,htfm),sc=scoreAt(X,k),ser=sigSeries(X,k),sg=ser[k],prev=ser[k-1];
   st.signal={bar:cs[k].t,score:sc?+sc.s.toFixed(2):null,sig:sg,price:px,atr:X.atr[k],reasons:(sc?sc.r:[]).map(r=>({p:r.p,t:r.t}))};
   // account + position (Alpaca is the source of truth)
   const acct=await alp("/account");st.account={equity:+acct.equity,cash:+acct.cash,buying_power:+acct.buying_power};

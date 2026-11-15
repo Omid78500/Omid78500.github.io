@@ -219,10 +219,16 @@ function analyze(first){
   const LONG=0.10;let longshot=false;
   if(isFinite(evU)&&evU>MIN&&evU>=evD){if(fu>=LONG)side=1;else longshot=true;}
   else if(isFinite(evD)&&evD>MIN){if(fd>=LONG)side=-1;else longshot=true;}
-  const vb=$("vbox");vb.className="verdict "+(side===1?"up":side===-1?"down":"skip");
-  $("vText").textContent=side===1?"UP بخر ▲":side===-1?"DOWN بخر ▼":"شرط نبند ✋";
-  const best=Math.max(evU,evD);
-  $("vSub").textContent=longshot?"طرف ارزان (شانس زیر ۱۰٪) روی کاغذ سود دارد، ولی مدل در این احتمال‌های خیلی کم دقیق نیست. ریسکش نکن.":side?`ارزش مورد انتظار: ${best>=0?"+":""}${pct(best)} به ازای هر دلار`:(isFinite(best)?`هیچ طرف ارزش ندارد (بهترین: ${pct(best)}). قیمت بازار تقریباً منصفانه یا گران است.`:"درصدها یا ضریب‌های بازار را وارد کن تا ارزش شرط حساب شود.");
+  const best0=Math.max(evU,evD);
+  // The verdict is fixed when you press "تحلیل کن"; live ticks never flip it. Only a lasting change (30+ seconds) raises a warning.
+  if(first||!R.lock)R.lock={side,longshot,best:best0,at:Date.now()};
+  R.diff=side!==R.lock.side?(R.diff||0)+1:0;
+  const K0=R.lock,lside=K0.side,best=K0.best;
+  const vb=$("vbox");vb.className="verdict "+(lside===1?"up":lside===-1?"down":"skip");
+  $("vText").textContent=lside===1?"UP بخر ▲":lside===-1?"DOWN بخر ▼":"شرط نبند ✋";
+  const lockTxt=` · 🔒 تصمیم ثابت از ${new Date(K0.at).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit",second:"2-digit"})}`;
+  $("vSub").textContent=(K0.longshot?"طرف ارزان (شانس زیر ۱۰٪) روی کاغذ سود دارد، ولی مدل در این احتمال‌های خیلی کم دقیق نیست. ریسکش نکن.":lside?`ارزش مورد انتظار: ${best>=0?"+":""}${pct(best)} به ازای هر دلار`:(isFinite(best)?`هیچ طرف ارزش ندارد (بهترین: ${pct(best)}). قیمت بازار تقریباً منصفانه یا گران است.`:"درصدها یا ضریب‌های بازار را وارد کن تا ارزش شرط حساب شود."))+lockTxt+
+    (R.diff>=10?" · ⚠️ شرایط بیش از ۳۰ ثانیه است عوض شده؛ اگر هنوز وارد نشدی، درصدهای تازه بازار را وارد کن و دوباره «تحلیل کن» را بزن.":"");
   $("fu").textContent=pct(fu,0);$("fd").textContent=pct(fd,0);
   $("mkU").textContent=isFinite(R.pu)?`بازار: ${pct(R.pu,0)}`:"";$("mkD").textContent=isFinite(R.pd)?`بازار: ${pct(R.pd,0)}`:"";
   const dist=S-R.K,sdMove=S*sig*Math.sqrt(Math.max(T,1e-9));
@@ -232,10 +238,10 @@ function analyze(first){
     .map(([t,v])=>`<div class="stat"><span>${t}</span><b>${v}</b></div>`).join("");
   // EV & sizing
   const kelly=(p,m)=>{const b=m-1;return b>0?Math.max(0,(b*p-(1-p))/b):0;};
-  const pickP=side===1?fu:fd,pickM=side===1?R.mu:R.md,kf=side?Math.min(kelly(pickP,pickM)/4,0.02):0,stake=isFinite(R.bank)?R.bank*kf:NaN;
+  const pickP=lside===1?fu:fd,pickM=lside===1?R.mu:R.md,kf=lside?Math.min(kelly(pickP,pickM)/4,0.02):0,stake=isFinite(R.bank)?R.bank*kf:NaN;
   $("ev").innerHTML=[["ارزش شرط UP",(evU>=0?"+":"")+pct(evU),evU>0?"pos":"neg"],["ارزش شرط DOWN",(evD>=0?"+":"")+pct(evD),evD>0?"pos":"neg"],
     ["سود اگر UP ببرد (هر $1)","$"+fmt(R.mu-1),""],["سود اگر DOWN ببرد (هر $1)","$"+fmt(R.md-1),""],
-    ["مبلغ پیشنهادی",side?"$"+fmt(stake):"$0",""],["سقف ریسک","۲٪ موجودی",""]]
+    ["مبلغ پیشنهادی",lside?"$"+fmt(stake):"$0",""],["سقف ریسک","۲٪ موجودی",""]]
     .map(([t,v,c])=>`<div class="stat"><span>${t}</span><b class="${c}">${v}</b></div>`).join("");
   // reasons
   why.push({c:dist>=0?"pos":"neg",t:`قیمت ${fp(Math.abs(dist))} دلار ${dist>=0?"بالای":"زیر"} تارگت است؛ یعنی ${fmt(Math.abs(dist/sdMove),2)} برابر نوسان معمول تا پایان.`});

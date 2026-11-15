@@ -293,6 +293,12 @@ function scoreAt(X,i){const r=[];let s=0;const add=(p,t)=>{s+=p;r.push({p,t});},
   if(X.vAvg[i]&&X.cs[i].v>1.8*X.vAvg[i])r.push({p:0,t:`حجم کندل ${(X.cs[i].v/X.vAvg[i]).toFixed(1)} برابر میانگین`});
   return{s:fs,raw:s,r};}
 const sigOf=s=>s==null?0:s>=TH?1:s<=-TH?-1:0;
+const EXIT=1; // hysteresis: a signal starts at |score|>=TH and only ends when the score drops back near zero (or flips past -TH)
+function sigSeries(X,k){if(X._ss&&X._ssk===k&&X._sth===TH)return X._ss;const out=Array(k+1).fill(0);let st=0;
+  for(let i=60;i<=k;i++){const sc=scoreAt(X,i),s=sc?sc.s:0;
+    if(st===1){if(s<=-TH)st=-1;else if(s<EXIT)st=0;}else if(st===-1){if(s>=TH)st=1;else if(s>-EXIT)st=0;}else st=s>=TH?1:s<=-TH?-1:0;
+    out[i]=st;}X._ss=out;X._ssk=k;X._sth=TH;return out;}
+
 function divergence(X,k){const piv=(arr,i,f)=>{for(let j=1;j<=3;j++){if(f(arr[i-j],arr[i])||f(arr[i+j],arr[i]))return false;}return true;};
   const lows=[],highs=[];for(let i=Math.max(4,k-45);i<=k-3;i++){if(piv(X.cs.map(c=>c.l),i,(a,b)=>a<b))lows.push(i);if(piv(X.cs.map(c=>c.h),i,(a,b)=>a>b))highs.push(i);}
   if(lows.length>=2){const[a,b]=lows.slice(-2);if(X.cs[b].l<X.cs[a].l&&X.R[b]>X.R[a])return{p:1,t:"واگرایی مثبت RSI (کف پایین‌تر قیمت، کف بالاتر RSI)"};}
@@ -306,13 +312,13 @@ function backtest(X,k,rr,slm){const T=[],marks=[];let pos=null,prev=0;
   for(let i=60;i<=k;i++){
     if(pos){const c=X.cs[i];const hitSL=pos.d===1?c.l<=pos.sl:c.h>=pos.sl,hitTP=pos.d===1?c.h>=pos.tp:c.l<=pos.tp;
       if(hitSL||hitTP){T.push({...pos,win:!hitSL,exit:i});pos=null;}}
-    const sc=scoreAt(X,i),sg=sigOf(sc&&sc.s);
+    const sg=sigSeries(X,k)[i];
     if(sg&&sg!==prev){marks.push({i,d:sg});if(!pos&&X.atr[i]){const e=X.C[i],risk=slm*X.atr[i];pos={d:sg,i,e,sl:e-sg*risk,tp:e+sg*risk*rr};}}
     prev=sg;}
   const w=T.filter(t=>t.win).length;return{T,marks,n:T.length,w,wr:T.length?w/T.length*100:0,netR:w*rr-(T.length-w),open:pos};}
 function closedIdx(cs,tfm){const n=cs.length-1;if(!useClosed)return n;return cs[n].t+tfm*6e4>Date.now()+5000?n-1:n;}
 function analyzeTF(t){const cs=DS[t];if(!cs||cs.length<60)return null;const h=HTF[t],X=ctx(cs,h?DS[h]:null,t,h),k=closedIdx(cs,t),sc=scoreAt(X,k);
-  if(!sc)return null;const sg=sigOf(sc.s);let since=0;for(let i=k-1;i>60;i--){const s2=scoreAt(X,i);if(sigOf(s2&&s2.s)!==sg)break;since++;}
+  if(!sc)return null;const ser=sigSeries(X,k),sg=ser[k];let since=0;for(let i=k-1;i>60;i--){if(ser[i]!==sg)break;since++;}
   return{X,k,sc,sg,since};}
 
 /* ===== format ===== */
