@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0f14">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>رادار خبر و زمان‌های حساس</title>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b0f14;--card:#141a21;--card2:#0f141a;--line:#2a323c;--txt:#e6edf3;--mut:#8b949e;--up:#22c55e;--dn:#ef4444;--acc:#f7931a;--blue:#58a6ff;--yel:#facc15}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font-family:Vazirmatn,Tahoma,sans-serif;font-size:15px;line-height:1.6}
+.wrap{max-width:720px;margin:0 auto;padding:calc(12px + env(safe-area-inset-top)) 12px calc(40px + env(safe-area-inset-bottom))}
+.top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+h1{font-size:18px;margin:0}.top a{color:var(--blue);font-size:13px;text-decoration:none}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:12px}
+.card h3{margin:0 0 8px;font-size:15px}
+.next{text-align:center;padding:18px 12px;border-radius:16px;margin-top:12px;border:2px solid var(--acc);background:linear-gradient(180deg,rgba(247,147,26,.2),rgba(247,147,26,.03))}
+.next .t{font-size:20px;font-weight:800}.next .c{font-size:30px;font-weight:800;direction:ltr}
+.small{font-size:12px;color:var(--mut)}
+.ev{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);align-items:flex-start}
+.ev:last-child{border-bottom:0}
+.dot{width:10px;height:10px;border-radius:50%;margin-top:8px;flex:none}
+.h{background:var(--dn)}.m{background:var(--yel)}.l{background:#6b7280}
+.ev b{display:block}.ev .w{font-size:13px;color:var(--mut)}
+.when{margin-right:auto;text-align:left;font-size:13px;white-space:nowrap}
+.alarm{display:none;margin-top:12px;padding:14px;border-radius:14px;background:rgba(239,68,68,.18);border:2px solid var(--dn);font-weight:700;text-align:center}
+button{font-family:inherit;font-size:14px;border:1px solid var(--line);background:#1f2730;color:var(--txt);padding:8px 12px;border-radius:9px;cursor:pointer}
+button.on{border-color:var(--up);color:var(--up)}
+canvas{width:100%;display:block}
+.fg{display:flex;align-items:center;gap:12px}
+.fg .n{font-size:34px;font-weight:800}
+.news a{color:var(--txt);text-decoration:none;display:block;padding:8px 0;border-bottom:1px solid var(--line)}
+.tag{font-size:11px;padding:0 8px;border-radius:10px;margin-left:6px}
+.tb{background:rgba(34,197,94,.2);color:var(--up)}.tr{background:rgba(239,68,68,.2);color:var(--dn)}.tn{background:#2a323c;color:var(--mut)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="top"><h1>📡 رادار خبر و زمان‌های حساس</h1><a href="./">← سیگنال‌یاب</a></div>
+<div class="small" id="tz"></div>
+
+<div class="alarm" id="alarm"></div>
+
+<div class="next" id="nextBox">
+  <div class="small">مهم‌ترین اتفاق بعدی</div>
+  <div class="t" id="nextT">در حال بارگذاری…</div>
+  <div class="small" id="nextW"></div>
+  <div class="c" id="nextC"></div>
+</div>
+
+<div class="card">
+  <h3>🔔 نگهبان حرکت ناگهانی</h3>
+  <div class="small">وقتی این صفحه باز است، هر ۲۰ ثانیه BTC را چک می‌کند و اگر حرکت یا حجم غیرعادی شروع شود، هشدار می‌دهد.</div>
+  <div class="row" style="margin-top:8px"><button id="snd">🔈 صدای هشدار: خاموش</button><span class="small" id="watch">—</span></div>
+</div>
+
+<div class="card">
+  <h3>🗓 تقویم ۷ روز آینده (به وقت گوشی تو)</h3>
+  <div class="row small" style="margin-bottom:6px"><span><span class="dot h" style="display:inline-block;margin:0"></span> خیلی مهم</span><span><span class="dot m" style="display:inline-block;margin:0"></span> مهم</span><span><span class="dot l" style="display:inline-block;margin:0"></span> کم‌اثر</span></div>
+  <div id="cal"></div>
+  <div class="small" id="calSrc" style="margin-top:6px"></div>
+</div>
+
+<div class="card">
+  <h3>⏱ پرنوسان‌ترین ساعت‌های روز (۲۵ روز اخیر)</h3>
+  <canvas id="hours" height="160"></canvas>
+  <div class="small" id="hoursTxt" style="margin-top:6px"></div>
+</div>
+
+<div class="card">
+  <h3>😨 شاخص ترس و طمع</h3>
+  <div class="fg"><div class="n" id="fgN">—</div><div><b id="fgL"></b><div class="small" id="fgS"></div></div></div>
+</div>
+
+<div class="card news">
+  <h3>📰 آخرین خبرهای کریپتو</h3>
+  <div id="news" class="small">در حال بارگذاری…</div>
+</div>
+
+<p class="small">زمان‌ها از تقویم اقتصادی آمریکا، برنامه بانک مرکزی آمریکا (Fed) و ساعت‌های ثابت بازار است. خبر غیرمنتظره (مثل هک یا توییت) را هیچ تقویمی از قبل نمی‌داند؛ برای همین «نگهبان حرکت ناگهانی» هست.</p>
+</div>
+
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const fa=n=>Number(n).toLocaleString("fa-IR");
+const TZ=Intl.DateTimeFormat().resolvedOptions().timeZone;
+$("tz").textContent="منطقه زمانی گوشی: "+TZ;
+async function getJ(u,ms=8000){const c=new AbortController(),t=setTimeout(()=>c.abort(),ms);try{const r=await fetch(u,{signal:c.signal});if(!r.ok)throw new Error(r.status);return await r.json();}finally{clearTimeout(t);}}
+
+/* ===== time helpers ===== */
+function zoned(y,mo,d,h,mi,tz){const want=Date.UTC(y,mo,d,h,mi);let g=want;
+  for(let k=0;k<3;k++){const o={};new Intl.DateTimeFormat("en-US",{timeZone:tz,year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hour12:false}).formatToParts(new Date(g)).forEach(p=>o[p.type]=p.value);
+    g+=want-Date.UTC(+o.year,+o.month-1,+o.day,(+o.hour)%24,+o.minute);}return g;}
+function partsIn(ts,tz){const o={};new Intl.DateTimeFormat("en-US",{timeZone:tz,year:"numeric",month:"2-digit",day:"2-digit",weekday:"short"}).formatToParts(new Date(ts)).forEach(p=>o[p.type]=p.value);
+  return{y:+o.year,m:+o.month-1,d:+o.day,wd:["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].indexOf(o.weekday)};}
+const whenTxt=ts=>new Date(ts).toLocaleString("fa-IR",{weekday:"long",hour:"2-digit",minute:"2-digit"});
+function left(ms){if(ms<0)return"همین الان";const d=Math.floor(ms/864e5),h=Math.floor(ms%864e5/36e5),m=Math.floor(ms%36e5/6e4),s=Math.floor(ms%6e4/1000);
+  return d?`${fa(d)} روز و ${fa(h)} ساعت`:h?`${fa(h)} ساعت و ${fa(m)} دقیقه`:`${fa(m)}:${String(s).padStart(2,"0").replace(/\d/g,x=>"۰۱۲۳۴۵۶۷۸۹"[x])}`;}
+
+/* ===== fixed schedule ===== */
+const FOMC=[["2026-12-09",14,0,"h","تصمیم نرخ بهره فدرال رزرو (FOMC)","مهم‌ترین رویداد ماه؛ معمولاً حرکت شدید در کل بازار. نیم ساعت بعد هم کنفرانس خبری رئیس فدرال رزرو است."],
+  ["2026-12-09",14,30,"h","کنفرانس خبری رئیس فدرال رزرو","حرف‌های رئیس فدرال رزرو می‌تواند جهت را ظرف چند دقیقه عوض کند."],
+  ["2026-11-18",14,0,"m","انتشار صورت‌جلسه فدرال رزرو","جزئیات جلسه قبلی؛ گاهی بازار را تکان می‌دهد."],
+  ["2026-12-30",14,0,"m","انتشار صورت‌جلسه فدرال رزرو","جزئیات جلسه دسامبر."],
+  ["2027-01-27",14,0,"h","تصمیم نرخ بهره فدرال رزرو (FOMC)","تاریخ موقت ۲۰۲۷."]];
+function fixedEvents(withMacro){const out=[],now=Date.now();
+  FOMC.forEach(([ds,h,mi,imp,t,w])=>{const[y,m,d]=ds.split("-").map(Number);out.push({ts:zoned(y,m-1,d,h,mi,"America/New_York"),imp,t,w});});
+  for(let i=-1;i<9;i++){const p=partsIn(now+i*864e5,"America/New_York"),{y,m,d,wd}=p;
+    if(wd>=1&&wd<=5){out.push({ts:zoned(y,m,d,9,30,"America/New_York"),imp:"m",t:"باز شدن بورس آمریکا",w:"ورود پول بزرگ؛ نیم ساعت اول معمولاً پرنوسان است."});
+      out.push({ts:zoned(y,m,d,16,0,"America/New_York"),imp:"l",t:"بسته شدن بورس آمریکا",w:"گاهی حرکت آخر روز."});
+      if(withMacro)out.push({ts:zoned(y,m,d,8,30,"America/New_York"),imp:"l",t:"ساعت معمول انتشار آمار اقتصادی آمریکا",w:"اگر آماری مثل تورم (CPI) یا اشتغال منتشر شود، این ساعت خیلی مهم است."});}
+    if(wd===5){const last=partsIn(now+(i+7)*864e5,"America/New_York").m!==m;
+      out.push({ts:zoned(y,m,d,8,0,"UTC"),imp:last?"h":"m",t:last?"انقضای ماهانه آپشن‌های بیت‌کوین":"انقضای هفتگی آپشن‌های بیت‌کوین",w:"قیمت ممکن است قبلش به سمت قیمت‌های پرحجم کشیده شود."});
+      out.push({ts:zoned(y,m,d,17,0,"America/New_York"),imp:"l",t:"تعطیلی آخر هفته فیوچرز CME",w:"از این به بعد معمولاً حجم کم می‌شود."});
+      if(withMacro&&d<=7)out.push({ts:zoned(y,m,d,8,30,"America/New_York"),imp:"h",t:"گزارش اشتغال آمریکا (NFP) — معمولاً",w:"یکی از پرنوسان‌ترین لحظه‌های ماه."});}
+    if(wd===0)out.push({ts:zoned(y,m,d,18,0,"America/New_York"),imp:"m",t:"بازگشایی فیوچرز CME بیت‌کوین",w:"شروع هفته معاملاتی؛ گاهی حرکت تند یا پر شدن «گپ»."});}
+  return out;}
+
+/* ===== economic calendar (ForexFactory feed) ===== */
+const FA={"CPI":"تورم مصرف‌کننده (CPI)","Core CPI":"تورم هسته (Core CPI)","PPI":"تورم تولیدکننده (PPI)","Non-Farm":"گزارش اشتغال (NFP)","Unemployment Rate":"نرخ بیکاری","FOMC":"فدرال رزرو (FOMC)","Federal Funds Rate":"تصمیم نرخ بهره","Retail Sales":"خرده‌فروشی","GDP":"رشد اقتصادی (GDP)","PCE":"تورم PCE","Unemployment Claims":"درخواست بیمه بیکاری","ISM":"شاخص ISM","Fed Chair":"سخنرانی رئیس فدرال رزرو","JOLTS":"فرصت‌های شغلی (JOLTS)","Consumer Sentiment":"اعتماد مصرف‌کننده"};
+function faTitle(t){for(const k in FA)if(t.includes(k))return FA[k]+" — "+t;return t;}
+let CAL=[],macroOk=false;
+async function loadCal(){let ev=[];
+  for(const u of["https://nfs.faireconomy.media/ff_calendar_thisweek.json","https://nfs.faireconomy.media/ff_calendar_nextweek.json"]){
+    try{const j=await getJ(u);j.filter(e=>e.country==="USD"&&(e.impact==="High"||e.impact==="Medium")).forEach(e=>{const ts=Date.parse(e.date);if(isFinite(ts))
+      ev.push({ts,imp:e.impact==="High"?"h":"m",t:faTitle(e.title),w:(e.forecast?`پیش‌بینی: ${e.forecast} · `:"")+(e.previous?`قبلی: ${e.previous}`:"")||"آمار اقتصادی آمریکا"});});macroOk=true;}catch(e){}}
+  CAL=fixedEvents(!macroOk).concat(ev).filter(e=>e.ts>Date.now()-30*6e4&&e.ts<Date.now()+8*864e5).sort((a,b)=>a.ts-b.ts);
+  const seen=new Set();CAL=CAL.filter(e=>{const k=e.ts+e.t;if(seen.has(k))return false;seen.add(k);return true;});
+  $("calSrc").textContent=macroOk?"منبع آمار اقتصادی: تقویم ForexFactory (زنده).":"تقویم آمار اقتصادی زنده در دسترس نبود؛ ساعت‌های ثابت و برنامه رسمی فدرال رزرو نشان داده شده است.";
+  renderCal();}
+function renderCal(){const now=Date.now();
+  $("cal").innerHTML=CAL.filter(e=>e.ts>now-30*6e4).map(e=>`<div class="ev"><span class="dot ${e.imp}"></span><div><b>${e.t}</b><div class="w">${e.w}</div></div>
+    <div class="when">${whenTxt(e.ts)}<div class="small">${e.ts<now?"در جریان":left(e.ts-now)+" دیگر"}</div></div></div>`).join("")||'<div class="small">رویدادی پیدا نشد.</div>';
+  const nx=CAL.find(e=>e.ts>now&&e.imp==="h")||CAL.find(e=>e.ts>now&&e.imp==="m");
+  if(nx){$("nextT").textContent=nx.t;$("nextW").textContent=whenTxt(nx.ts)+" · "+nx.w;$("nextC").textContent=left(nx.ts-now);
+    $("nextBox").style.borderColor=nx.ts-now<36e5?"var(--dn)":"var(--acc)";}}
+setInterval(()=>{if(CAL.length)renderCal();},1000);
+
+/* ===== volatility by hour ===== */
+async function loadHours(){try{let all=[],end=Date.now();
+  for(let p=0;p<2;p++){const st=end-300*36e5;const c=await getJ(`https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=3600&start=${new Date(st).toISOString()}&end=${new Date(end).toISOString()}`);all=all.concat(c);end=st;}
+  const sum=Array(24).fill(0),n=Array(24).fill(0);
+  all.forEach(r=>{const h=new Date(r[0]*1000).getHours();sum[h]+=(r[2]-r[1])/r[4]*100;n[h]++;});
+  const avg=sum.map((s,i)=>n[i]?s/n[i]:0),mx=Math.max(...avg),top=avg.map((v,i)=>[v,i]).sort((a,b)=>b[0]-a[0]).slice(0,3).map(x=>x[1]);
+  const cv=$("hours"),dpr=devicePixelRatio||1,w=cv.clientWidth,h=160;cv.width=w*dpr;cv.height=h*dpr;cv.style.height=h+"px";const g=cv.getContext("2d");g.setTransform(dpr,0,0,dpr,0,0);
+  const bw=w/24;avg.forEach((v,i)=>{const bh=(v/mx)*(h-28);g.fillStyle=top.includes(i)?"#ef4444":v>mx*0.7?"#f7931a":"#3b4652";g.fillRect(i*bw+1,h-16-bh,bw-2,bh);
+    if(i%3===0){g.fillStyle="#8b949e";g.font="10px sans-serif";g.textAlign="center";g.fillText(i,i*bw+bw/2,h-3);}});
+  const nowH=new Date().getHours();g.strokeStyle="#58a6ff";g.lineWidth=2;g.strokeRect(nowH*bw+0.5,4,bw-1,h-20);
+  $("hoursTxt").textContent=`پرنوسان‌ترین ساعت‌ها به وقت تو: ${top.sort((a,b)=>a-b).map(x=>fa(x)+":۰۰").join("، ")}. کادر آبی = ساعت الان. (میانگین دامنه نوسان هر ساعت BTC)`;}
+  catch(e){$("hoursTxt").textContent="داده نوسان در دسترس نبود.";}}
+
+/* ===== fear & greed ===== */
+async function loadFG(){try{const j=await getJ("https://api.alternative.me/fng/?limit=2");const v=+j.data[0].value,p=+j.data[1].value;
+  const L=v<25?["ترس شدید","#ef4444"]:v<45?["ترس","#f97316"]:v<56?["خنثی","#8b949e"]:v<75?["طمع","#84cc16"]:["طمع شدید","#22c55e"];
+  $("fgN").textContent=fa(v);$("fgN").style.color=L[1];$("fgL").textContent=L[0];$("fgS").textContent=`دیروز: ${fa(p)} · ترس شدید معمولاً نزدیک کف‌ها و طمع شدید نزدیک سقف‌ها دیده می‌شود (نه همیشه).`;}
+  catch(e){$("fgS").textContent="در دسترس نبود.";}}
+
+/* ===== news ===== */
+const BULL=/surge|soar|rally|jump|gain|bull|record|approv|inflow|buy|rise|climb|breakout|high/i,BEAR=/crash|plunge|drop|fall|bear|hack|exploit|outflow|sell|lawsuit|ban|liquidat|slump|fear|low|probe|sue/i;
+async function loadNews(){let items=[];
+  try{const j=await getJ("https://min-api.cryptocompare.com/data/v2/news/?lang=EN");items=(j.Data||[]).slice(0,20).map(n=>({t:n.title,u:n.url,s:n.source_info&&n.source_info.name||n.source,ts:n.published_on*1000}));}catch(e){}
+  if(!items.length){$("news").innerHTML='خبرها الان بارگذاری نشد. منابع خوب: <a href="https://www.coindesk.com" style="display:inline;color:var(--blue)">CoinDesk</a>، <a href="https://www.theblock.co" style="display:inline;color:var(--blue)">The Block</a>، <a href="https://cointelegraph.com" style="display:inline;color:var(--blue)">Cointelegraph</a>';return;}
+  $("news").innerHTML=items.map(n=>{const b=BULL.test(n.t),r=BEAR.test(n.t),tag=b&&!r?'<span class="tag tb">مثبت</span>':r&&!b?'<span class="tag tr">منفی</span>':'<span class="tag tn">خنثی</span>';
+    const ago=Math.round((Date.now()-n.ts)/6e4);return`<a href="${n.u}" target="_blank" rel="noopener">${tag}${n.t}<div class="small">${n.s||""} · ${ago<60?fa(ago)+" دقیقه پیش":fa(Math.round(ago/60))+" ساعت پیش"}</div></a>`;}).join("")+
+    '<div class="small" style="margin-top:6px">برچسب مثبت/منفی فقط از روی کلمات تیتر است و دقیق نیست.</div>';}
+
+/* ===== live watch ===== */
+let snd=false,ac=null,lastAlarm=0;
+$("snd").onclick=()=>{snd=!snd;if(snd){try{ac=ac||new(window.AudioContext||window.webkitAudioContext)();ac.resume();beep();}catch(e){}}$("snd").textContent="🔈 صدای هشدار: "+(snd?"روشن":"خاموش");$("snd").classList.toggle("on",snd);};
+function beep(){if(!ac)return;try{for(let k=0;k<3;k++){const o=ac.createOscillator(),g=ac.createGain();o.connect(g);g.connect(ac.destination);o.frequency.value=880;const t=ac.currentTime+k*0.3;g.gain.setValueAtTime(.25,t);g.gain.exponentialRampToValueAtTime(.001,t+.25);o.start(t);o.stop(t+.25);}}catch(e){}
+  try{navigator.vibrate&&navigator.vibrate([300,100,300]);}catch(e){}}
+async function watch(){try{const c=(await getJ("https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=60")).map(r=>({t:r[0]*1000,l:r[1],h:r[2],o:r[3],c:r[4],v:r[5]})).sort((a,b)=>a.t-b.t);
+  const n=c.length-1,ret5=[];for(let i=5;i<n-5;i++)ret5.push(Math.log(c[i].c/c[i-5].c));const sd=Math.sqrt(ret5.reduce((a,b)=>a+b*b,0)/ret5.length);
+  const m5=Math.log(c[n].c/c[n-5].c),vAvg=c.slice(n-65,n-5).reduce((a,b)=>a+b.v,0)/60,v5=c.slice(n-4).reduce((a,b)=>a+b.v,0)/5,z=m5/sd,vr=v5/vAvg;
+  $("watch").textContent=`BTC $${c[n].c.toLocaleString("en-US",{maximumFractionDigits:0})} · حرکت ۵ دقیقه: ${(m5*100).toFixed(2)}% (${Math.abs(z).toFixed(1)}× عادی) · حجم ${vr.toFixed(1)}× عادی`;
+  const hot=Math.abs(z)>3||vr>4&&Math.abs(z)>1.5;const al=$("alarm");
+  if(hot){al.style.display="block";al.textContent=`⚡ حرکت غیرعادی الان: BTC در ۵ دقیقه ${(m5*100).toFixed(2)}% ${m5>0?"بالا رفت ▲":"پایین آمد ▼"} — حجم ${vr.toFixed(1)} برابر عادی. احتمالاً خبری آمده؛ مراقب باش.`;
+    if(snd&&Date.now()-lastAlarm>5*6e4){beep();lastAlarm=Date.now();}}else al.style.display="none";}catch(e){$("watch").textContent="اتصال برقرار نشد.";}}
+
+loadCal();loadHours();loadFG();loadNews();watch();
+setInterval(watch,20000);setInterval(loadCal,30*6e4);setInterval(loadNews,10*6e4);
+if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{});}
+</script>
+</body>
+</html>
