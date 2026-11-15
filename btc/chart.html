@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0f14">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>چارت حرفه‌ای</title>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b0f14;--card:#141a21;--line:#2a323c;--txt:#e6edf3;--mut:#8b949e;--up:#22c55e;--dn:#ef4444;--acc:#f7931a;--blue:#58a6ff}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--txt);font-family:Vazirmatn,Tahoma,sans-serif;font-size:14px}
+.bar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:calc(8px + env(safe-area-inset-top)) 10px 8px;border-bottom:1px solid var(--line)}
+.bar a{color:var(--blue);text-decoration:none;font-size:13px;margin-right:auto}
+.seg{display:flex;background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{font-family:inherit;font-size:13px;border:0;background:transparent;color:var(--txt);padding:7px 11px;cursor:pointer}
+.seg button.on{background:var(--acc);color:#111;font-weight:800}
+#tvWrap{height:calc(100vh - 110px);height:calc(100dvh - 110px)}
+#sigWrap{display:none;direction:ltr}
+#main{height:calc(62vh);height:calc(62dvh)}#rsi{height:16vh;height:16dvh;border-top:1px solid var(--line)}
+.info{display:flex;gap:10px;flex-wrap:wrap;padding:6px 10px;font-size:12px;color:var(--mut);direction:rtl;border-bottom:1px solid var(--line)}
+.pill{padding:1px 10px;border-radius:12px;font-weight:800;color:#111}
+.small{font-size:11px;color:var(--mut);padding:6px 10px;direction:rtl}
+.lg span{white-space:nowrap}.lg i{display:inline-block;width:12px;height:3px;vertical-align:middle;margin-left:4px}
+</style>
+</head>
+<body>
+<div class="bar">
+  <div class="seg" id="mode"><button data-m="tv" class="on">TradingView کامل</button><button data-m="sig">چارت سیگنال</button></div>
+  <div class="seg" id="coin"><button data-c="BTC" class="on">BTC</button><button data-c="ETH">ETH</button><button data-c="SOL">SOL</button><button data-c="XRP">XRP</button></div>
+  <div class="seg" id="tfs"><button data-t="5">5m</button><button data-t="10">10m</button><button data-t="15" class="on">15m</button><button data-t="60">1h</button></div>
+  <a href="./">← سیگنال‌یاب</a>
+</div>
+
+<div id="tvWrap"><div id="tv" style="height:100%"></div></div>
+
+<div id="sigWrap">
+  <div class="info" id="info">در حال بارگذاری…</div>
+  <div class="info lg"><span><i style="background:#facc15"></i>EMA 9</span><span><i style="background:#f7931a"></i>EMA 21</span><span><i style="background:#58a6ff"></i>EMA 50</span><span><i style="background:#bc8cff"></i>Supertrend</span><span>▲▼ سیگنال‌ها</span><span>— ورود / حد ضرر / حد سود</span></div>
+  <div id="main"></div>
+  <div id="rsi"></div>
+  <div class="small">با دو انگشت زوم کن و با یک انگشت جابه‌جا شو. قیمت هر ۳ ثانیه زنده به‌روز می‌شود؛ سیگنال روی کندل بسته‌شده حساب می‌شود.</div>
+</div>
+
+<script src="https://s3.tradingview.com/tv.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const store={get(k,d){try{const v=localStorage.getItem("chart_"+k);return v==null?d:JSON.parse(v);}catch(e){return d;}},set(k,v){try{localStorage.setItem("chart_"+k,JSON.stringify(v));}catch(e){}}};
+let mode=store.get("mode","tv"),coin=store.get("coin","BTC"),tf=store.get("tf",15);
+const TFL={5:"5m",10:"10m",15:"15m",60:"1h"};
+let TH=5;try{const v=localStorage.getItem("btcsig_th");if(v)TH=+JSON.parse(v)||5;}catch(e){}
+const DP={BTC:2,ETH:2,SOL:3,XRP:4};
+/* ===== shared signal engine (same as the BTC Signal app) ===== */
+/* ===== indicators ===== */
+function ema(src,p){const o=Array(src.length).fill(null),k=2/(p+1);let s=0,c=0;
+  for(let i=0;i<src.length;i++){const v=src[i];if(v==null)continue;if(c<p){s+=v;c++;if(c===p)o[i]=s/p;}else o[i]=v*k+o[i-1]*(1-k);}return o;}
+function sma(src,p){const o=Array(src.length).fill(null);
+  for(let i=p-1;i<src.length;i++){let s=0,ok=true;for(let j=i-p+1;j<=i;j++){if(src[j]==null){ok=false;break;}s+=src[j];}if(ok)o[i]=s/p;}return o;}
+function rsi(src,p=14){const o=Array(src.length).fill(null);let g=0,l=0;
+  for(let i=1;i<src.length;i++){const d=src[i]-src[i-1],G=Math.max(d,0),L=Math.max(-d,0);
+    if(i<=p){g+=G;l+=L;if(i===p){g/=p;l/=p;o[i]=l===0?100:100-100/(1+g/l);}}else{g=(g*(p-1)+G)/p;l=(l*(p-1)+L)/p;o[i]=l===0?100:100-100/(1+g/l);}}return o;}
+function stochRsi(R,p=14){const raw=R.map((v,i)=>{if(v==null||i<p-1)return null;let mn=Infinity,mx=-Infinity;
+  for(let j=i-p+1;j<=i;j++){if(R[j]==null)return null;mn=Math.min(mn,R[j]);mx=Math.max(mx,R[j]);}return mx===mn?50:(v-mn)/(mx-mn)*100;});
+  const k=sma(raw,3);return{k,d:sma(k,3)};}
+function macd(C){const a=ema(C,12),b=ema(C,26),m=C.map((_,i)=>a[i]!=null&&b[i]!=null?a[i]-b[i]:null),s=ema(m,9);
+  return{m,s,h:m.map((v,i)=>v!=null&&s[i]!=null?v-s[i]:null)};}
+function trs(cs){return cs.map((c,i)=>i?Math.max(c.h-c.l,Math.abs(c.h-cs[i-1].c),Math.abs(c.l-cs[i-1].c)):c.h-c.l);}
+function wilder(src,p){const o=Array(src.length).fill(null);let a=0;
+  for(let i=1;i<src.length;i++){if(i<=p){a+=src[i];if(i===p){a/=p;o[i]=a;}}else{a=(a*(p-1)+src[i])/p;o[i]=a;}}return o;}
+function atr(cs,p=14){return wilder(trs(cs),p);}
+function adx(cs,p=14){const n=cs.length,pd=[0],md=[0];
+  for(let i=1;i<n;i++){const up=cs[i].h-cs[i-1].h,dn=cs[i-1].l-cs[i].l;pd.push(up>dn&&up>0?up:0);md.push(dn>up&&dn>0?dn:0);}
+  const tr=wilder(trs(cs),p),sp=wilder(pd,p),sm=wilder(md,p),pdi=[],mdi=[],dx=[];
+  for(let i=0;i<n;i++){if(tr[i]==null||tr[i]===0){pdi.push(null);mdi.push(null);dx.push(null);continue;}
+    const P=100*sp[i]/tr[i],M=100*sm[i]/tr[i];pdi.push(P);mdi.push(M);dx.push(P+M===0?0:100*Math.abs(P-M)/(P+M));}
+  const o=Array(n).fill(null);let a=0,c=0,st=dx.findIndex(v=>v!=null);
+  for(let i=st;i>=0&&i<n;i++){if(c<p){a+=dx[i];c++;if(c===p){a/=p;o[i]=a;}}else{a=(a*(p-1)+dx[i])/p;o[i]=a;}}
+  return{adx:o,pdi,mdi};}
+function supertrend(cs,p=10,m=3){const A=atr(cs,p),n=cs.length,fu=Array(n).fill(null),fl=Array(n).fill(null),dir=Array(n).fill(0),line=Array(n).fill(null);
+  for(let i=0;i<n;i++){if(A[i]==null)continue;const hl=(cs[i].h+cs[i].l)/2,bu=hl+m*A[i],bl=hl-m*A[i];
+    if(fu[i-1]==null){fu[i]=bu;fl[i]=bl;dir[i]=cs[i].c>=hl?1:-1;}
+    else{const pc=cs[i-1].c;fu[i]=(bu<fu[i-1]||pc>fu[i-1])?bu:fu[i-1];fl[i]=(bl>fl[i-1]||pc<fl[i-1])?bl:fl[i-1];
+      dir[i]=dir[i-1]===-1?(cs[i].c>fu[i]?1:-1):(cs[i].c<fl[i]?-1:1);}
+    line[i]=dir[i]===1?fl[i]:fu[i];}
+  return{dir,line};}
+function vwap(cs){let d=-1,pv=0,vv=0;return cs.map(c=>{const day=Math.floor(c.t/864e5);if(day!==d){d=day;pv=0;vv=0;}
+  const tp=(c.h+c.l+c.c)/3;pv+=tp*c.v;vv+=c.v;return vv?pv/vv:tp;});}
+function obv(cs){let o=0;return cs.map((c,i)=>{if(i){if(c.c>cs[i-1].c)o+=c.v;else if(c.c<cs[i-1].c)o-=c.v;}return o;});}
+
+function normalize(rows){rows=rows.filter(r=>[r.t,r.o,r.h,r.l,r.c].every(Number.isFinite));const m=new Map();rows.forEach(r=>{if(!Number.isFinite(r.v))r.v=0;m.set(r.t,r);});
+  return[...m.values()].sort((a,b)=>a.t-b.t);}
+function parseText(txt){txt=txt.trim();let j=null;try{j=JSON.parse(txt);}catch(e){}
+  if(j){if(j.result&&typeof j.result==="object"){const k=Object.keys(j.result).find(x=>Array.isArray(j.result[x]));
+      if(k)return normalize(j.result[k].map(r=>({t:r[0]*1000,o:+r[1],h:+r[2],l:+r[3],c:+r[4],v:+r[6]})));}
+    if(Array.isArray(j)&&Array.isArray(j[0])){if(j[0].length>=11)return normalize(j.map(r=>({t:+r[0],o:+r[1],h:+r[2],l:+r[3],c:+r[4],v:+r[5]})));
+      if(j[0].length===6)return normalize(j.map(r=>({t:r[0]*1000,l:+r[1],h:+r[2],o:+r[3],c:+r[4],v:+r[5]})));}
+    throw new Error("قالب JSON شناخته نشد");}
+  const rows=txt.split(/\r?\n/).map(s=>s.split(/[,;\t]/).map(x=>x.trim())).filter(r=>r.length>=5&&!isNaN(parseFloat(r[1])));
+  if(!rows.length)throw new Error("داده‌ای پیدا نشد");
+  return normalize(rows.map(r=>{let t=isNaN(+r[0])?Date.parse(r[0]):+r[0];if(t<1e11)t*=1000;return{t,o:+r[1],h:+r[2],l:+r[3],c:+r[4],v:r[5]!=null?+r[5]:0};}));}
+function agg(cs,base,to){if(to===base)return cs.slice();const ms=to*6e4,need=to/base,out=[];let cur=null;
+  for(const c of cs){const b=Math.floor(c.t/ms)*ms;if(!cur||cur.t!==b){if(cur)out.push(cur);cur={t:b,o:c.o,h:c.h,l:c.l,c:c.c,v:c.v,n:1};}
+    else{cur.h=Math.max(cur.h,c.h);cur.l=Math.min(cur.l,c.l);cur.c=c.c;cur.v+=c.v;cur.n++;}}
+  if(cur)out.push(cur);if(out.length&&out[0].n<need)out.shift();return out;}
+function ctx(cs,htfCs,tfm,htfm){
+  const C=cs.map(c=>c.c),R=rsi(C),M=macd(C),S=stochRsi(R),ST=supertrend(cs),AD=adx(cs),OB=obv(cs);
+  const X={cs,C,tfm,htfm,e9:ema(C,9),e21:ema(C,21),e50:ema(C,50),e200:ema(C,200),R,sk:S.k,sd:S.d,mm:M.m,ms:M.s,mh:M.h,atr:atr(cs,14),
+    st:ST.dir,stl:ST.line,adx:AD.adx,pdi:AD.pdi,mdi:AD.mdi,vw:vwap(cs),obv:OB,obvE:ema(OB,20),vAvg:sma(cs.map(c=>c.v),20),htf:null};
+  if(htfCs&&htfCs.length>=30){const hc=htfCs.map(c=>c.c),h20=ema(hc,20),h50=ema(hc,50);
+    const tr=hc.map((c,i)=>h20[i]==null||h50[i]==null?null:(c>h20[i]&&h20[i]>h50[i]?1:c<h20[i]&&h20[i]<h50[i]?-1:0));
+    X.htf=Array(cs.length).fill(null);let j=-1;
+    for(let i=0;i<cs.length;i++){const te=cs[i].t+tfm*6e4;while(j+1<htfCs.length&&htfCs[j+1].t+htfm*6e4<=te)j++;X.htf[i]=j>=0?tr[j]:null;}}
+  return X;}
+function pattern(cs,i,X){const c=cs[i],p=cs[i-1];if(!p)return 0;const body=Math.abs(c.c-c.o),up=c.h-Math.max(c.o,c.c),lo=Math.min(c.o,c.c)-c.l,rng=c.h-c.l||1;
+  if(p.c<p.o&&c.c>c.o&&c.o<=p.c&&c.c>=p.o&&body>rng*0.5)return{p:1,t:"الگوی پوشای صعودی (Bullish Engulfing)"};
+  if(p.c>p.o&&c.c<c.o&&c.o>=p.c&&c.c<=p.o&&body>rng*0.5)return{p:-1,t:"الگوی پوشای نزولی (Bearish Engulfing)"};
+  if(body>0&&lo>=2*body&&up<=body*0.6&&c.c<X.e21[i])return{p:1,t:"کندل چکش (Hammer) در کف"};
+  if(body>0&&up>=2*body&&lo<=body*0.6&&c.c>X.e21[i])return{p:-1,t:"کندل ستاره دنباله‌دار (Shooting Star) در سقف"};
+  return 0;}
+function scoreAt(X,i){const r=[];let s=0;const add=(p,t)=>{s+=p;r.push({p,t});},c=X.C[i];
+  if(X.e50[i]==null||X.mh[i]==null||X.R[i]==null)return null;
+  if(X.e9[i]>X.e21[i]&&X.e21[i]>X.e50[i])add(2,"EMA 9 > 21 > 50 — روند صعودی مرتب");
+  else if(X.e9[i]<X.e21[i]&&X.e21[i]<X.e50[i])add(-2,"EMA 9 < 21 < 50 — روند نزولی مرتب");
+  else add(0,"میانگین‌های متحرک درهم — روند مشخص نیست");
+  if(X.e200[i]!=null)add(c>X.e200[i]?1:-1,`قیمت ${c>X.e200[i]?"بالای":"زیر"} EMA 200`);
+  if(X.htf&&X.htf[i]!=null){const h=X.htf[i];add(h*2,h===1?`روند تایم‌فریم بالاتر (${TFL[X.htfm]}) صعودی`:h===-1?`روند تایم‌فریم بالاتر (${TFL[X.htfm]}) نزولی`:`روند تایم‌فریم بالاتر (${TFL[X.htfm]}) خنثی`);}
+  if(X.st[i]){const flip=X.st[i-1]&&X.st[i-1]!==X.st[i];add(X.st[i]*2,X.st[i]===1?(flip?"سوپرترند همین الان صعودی شد":"سوپرترند صعودی"):(flip?"سوپرترند همین الان نزولی شد":"سوپرترند نزولی"));}
+  let cross=0;for(let k=i-2;k<=i;k++){const a=X.mh[k-1],b=X.mh[k];if(a!=null&&b!=null){if(a<=0&&b>0)cross=1;if(a>=0&&b<0)cross=-1;}}
+  if(cross)add(cross*2,cross===1?"کراس صعودی MACD در چند کندل اخیر":"کراس نزولی MACD در چند کندل اخیر");
+  else add(X.mh[i]>0?1:-1,X.mh[i]>0?"هیستوگرام MACD مثبت":"هیستوگرام MACD منفی");
+  const rv=X.R[i];
+  if(rv>75)add(-1,`RSI ${rv.toFixed(1)} — اشباع خرید شدید`);else if(rv<25)add(1,`RSI ${rv.toFixed(1)} — اشباع فروش شدید`);
+  else add(rv>=50?1:-1,`RSI ${rv.toFixed(1)} — مومنتوم ${rv>=50?"مثبت":"منفی"}`);
+  let sc=0;for(let k=i-1;k<=i;k++){const k0=X.sk[k-1],d0=X.sd[k-1],k1=X.sk[k],d1=X.sd[k];
+    if([k0,d0,k1,d1].every(v=>v!=null)){if(k0<=d0&&k1>d1&&k1<35)sc=1;if(k0>=d0&&k1<d1&&k1>65)sc=-1;}}
+  if(sc)add(sc,sc===1?"Stoch RSI از ناحیه اشباع فروش رو به بالا کراس کرد":"Stoch RSI از ناحیه اشباع خرید رو به پایین کراس کرد");
+  add(c>X.vw[i]?1:-1,`قیمت ${c>X.vw[i]?"بالای":"زیر"} VWAP روزانه`);
+  if(X.obvE[i]!=null)add(X.obv[i]>X.obvE[i]?1:-1,X.obv[i]>X.obvE[i]?"OBV بالای میانگین — ورود پول":"OBV زیر میانگین — خروج پول");
+  const pt=pattern(X.cs,i,X);if(pt)add(pt.p,pt.t);
+  let fs=s;const ad=X.adx[i];
+  if(ad!=null){if(ad<18){fs=s*0.6;r.push({p:0,t:`ADX ${ad.toFixed(0)} — بازار بی‌روند/رنج، قدرت سیگنال کم شد`});}
+    else r.push({p:0,t:`ADX ${ad.toFixed(0)} — ${ad>25?"روند قوی":"روند متوسط"}`});}
+  if(X.vAvg[i]&&X.cs[i].v>1.8*X.vAvg[i])r.push({p:0,t:`حجم کندل ${(X.cs[i].v/X.vAvg[i]).toFixed(1)} برابر میانگین`});
+  return{s:fs,raw:s,r};}
+
+const sigOf=s=>s==null?0:s>=TH?1:s<=-TH?-1:0;
+
+/* ===== UI state ===== */
+function seg(id,attr,val){document.querySelectorAll(`#${id} button`).forEach(b=>b.classList.toggle("on",b.dataset[attr]==String(val)));}
+function apply(){seg("mode","m",mode);seg("coin","c",coin);seg("tfs","t",tf);
+  $("tvWrap").style.display=mode==="tv"?"block":"none";$("sigWrap").style.display=mode==="sig"?"block":"none";
+  if(mode==="tv")loadTV();else loadSig();}
+document.querySelectorAll("#mode button").forEach(b=>b.onclick=()=>{mode=b.dataset.m;store.set("mode",mode);apply();});
+document.querySelectorAll("#coin button").forEach(b=>b.onclick=()=>{coin=b.dataset.c;store.set("coin",coin);apply();});
+document.querySelectorAll("#tfs button").forEach(b=>b.onclick=()=>{tf=+b.dataset.t;store.set("tf",tf);apply();});
+
+/* ===== TradingView full chart ===== */
+let tvKey="";
+function loadTV(){const key=coin+tf;if(key===tvKey)return;tvKey=key;$("tv").innerHTML="";
+  if(!window.TradingView){$("tv").innerHTML='<div class="small">TradingView بارگذاری نشد؛ اینترنت را چک کن.</div>';return;}
+  new TradingView.widget({container_id:"tv",autosize:true,symbol:"COINBASE:"+coin+"USD",interval:String(tf),timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,
+    theme:"dark",style:"1",locale:"en",toolbar_bg:"#0b0f14",enable_publishing:false,allow_symbol_change:true,hide_side_toolbar:false,withdateranges:true,
+    details:true,hotlist:true,save_image:true,studies:["MAExp@tv-basicstudies","BB@tv-basicstudies","RSI@tv-basicstudies","MACD@tv-basicstudies","Volume@tv-basicstudies"]});}
+
+/* ===== signal chart (lightweight-charts) ===== */
+let ch=null,rc=null,S={},lines=[],sigKey="",timer=null,lastData=null;
+const cb=c=>c+"-USD";
+async function candles(product,gran,pages){let all=[],end=Date.now();
+  for(let p=0;p<pages;p++){const st=end-300*gran*1000;const r=await fetch(`https://api.exchange.coinbase.com/products/${product}/candles?granularity=${gran}&start=${new Date(st).toISOString()}&end=${new Date(end).toISOString()}`);
+    all=all.concat(parseText(await r.text()));end=st;}return normalize(all);}
+function mkCharts(){if(ch)return;const LW=LightweightCharts,opt={layout:{background:{color:"#0b0f14"},textColor:"#8b949e",fontFamily:"Vazirmatn, sans-serif"},
+    grid:{vertLines:{color:"#161c23"},horzLines:{color:"#161c23"}},rightPriceScale:{borderColor:"#2a323c"},timeScale:{borderColor:"#2a323c",timeVisible:true,secondsVisible:false},
+    crosshair:{mode:LW.CrosshairMode.Normal},localization:{timeFormatter:t=>new Date(t*1000).toLocaleString("en-GB",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})}};
+  ch=LW.createChart($("main"),{...opt,autoSize:true});rc=LW.createChart($("rsi"),{...opt,autoSize:true,timeScale:{...opt.timeScale,visible:false}});
+  S.c=ch.addCandlestickSeries({upColor:"#22c55e",downColor:"#ef4444",borderVisible:false,wickUpColor:"#22c55e",wickDownColor:"#ef4444"});
+  S.e9=ch.addLineSeries({color:"#facc15",lineWidth:1,priceLineVisible:false,lastValueVisible:false});
+  S.e21=ch.addLineSeries({color:"#f7931a",lineWidth:2,priceLineVisible:false,lastValueVisible:false});
+  S.e50=ch.addLineSeries({color:"#58a6ff",lineWidth:2,priceLineVisible:false,lastValueVisible:false});
+  S.st=ch.addLineSeries({color:"#bc8cff",lineWidth:2,lineStyle:2,priceLineVisible:false,lastValueVisible:false});
+  S.v=ch.addHistogramSeries({priceScaleId:"vol",priceFormat:{type:"volume"},lastValueVisible:false,priceLineVisible:false});
+  ch.priceScale("vol").applyOptions({scaleMargins:{top:0.85,bottom:0}});
+  S.r=rc.addLineSeries({color:"#bc8cff",lineWidth:2,priceLineVisible:false});
+  [70,50,30].forEach(v=>S.r.createPriceLine({price:v,color:v===50?"#2a323c":"#3b4652",lineWidth:1,lineStyle:2,axisLabelVisible:false}));
+  let lock=false;const sync=(a,b)=>a.timeScale().subscribeVisibleLogicalRangeChange(r=>{if(lock||!r)return;lock=true;b.timeScale().setVisibleLogicalRange(r);lock=false;});
+  sync(ch,rc);sync(rc,ch);
+  ch.subscribeCrosshairMove(p=>{if(!lastData||!p||!p.time){showInfo();return;}const i=lastData.cs.findIndex(c=>c.t/1000===p.time);if(i>=0)showInfo(i);});}
+function ts(t){return Math.floor(t/1000);}
+async function loadSig(){mkCharts();const key=coin+tf;const fresh=key!==sigKey;sigKey=key;clearInterval(timer);
+  try{$("info").textContent="در حال بارگذاری…";const P=cb(coin);
+    let cs=tf===10?agg(await candles(P,300,2),5,10):await candles(P,tf===5?300:tf===15?900:3600,tf===60?1:2);
+    const htf=tf===5?await candles(P,900,1):await candles(P,3600,1),htfm=tf===5?15:60;
+    draw(cs,htf,htfm,fresh);timer=setInterval(()=>live(P),3000);}
+  catch(e){$("info").textContent="داده بارگذاری نشد: "+e.message;}}
+function draw(cs,htf,htfm,fit){const X=ctx(cs,htf,tf,htfm),n=cs.length-1,k=cs[n].t+tf*6e4>Date.now()+5000?n-1:n;
+  const line=a=>cs.map((c,i)=>a[i]==null?null:{time:ts(c.t),value:a[i]}).filter(Boolean);
+  const pf={type:"price",precision:DP[coin],minMove:1/Math.pow(10,DP[coin])};
+  [S.c,S.e9,S.e21,S.e50,S.st].forEach(s=>s.applyOptions({priceFormat:pf}));
+  S.c.setData(cs.map(c=>({time:ts(c.t),open:c.o,high:c.h,low:c.l,close:c.c})));
+  S.e9.setData(line(X.e9));S.e21.setData(line(X.e21));S.e50.setData(line(X.e50));S.st.setData(line(X.stl));
+  S.v.setData(cs.map(c=>({time:ts(c.t),value:c.v,color:c.c>=c.o?"rgba(34,197,94,.35)":"rgba(239,68,68,.35)"})));
+  S.r.setData(line(X.R));
+  const marks=[];let prev=0,cur=null;
+  for(let i=60;i<=k;i++){const sc=scoreAt(X,i),sg=sigOf(sc&&sc.s);if(sg&&sg!==prev)marks.push({time:ts(cs[i].t),position:sg===1?"belowBar":"aboveBar",color:sg===1?"#22c55e":"#ef4444",shape:sg===1?"arrowUp":"arrowDown",text:sg===1?"BUY":"SELL"});prev=sg;if(i===k)cur={sc,sg};}
+  S.c.setMarkers(marks);
+  lines.forEach(l=>S.c.removePriceLine(l));lines=[];
+  if(cur&&cur.sg){const e=X.C[k],a=X.atr[k]*1.5,d=cur.sg;
+    lines.push(S.c.createPriceLine({price:e,color:"#e6edf3",lineWidth:1,lineStyle:2,title:"ENTRY"}));
+    lines.push(S.c.createPriceLine({price:e-d*a,color:"#ef4444",lineWidth:1,lineStyle:2,title:"SL"}));
+    lines.push(S.c.createPriceLine({price:e+d*a*2,color:"#22c55e",lineWidth:1,lineStyle:2,title:"TP"}));}
+  lastData={cs,X,k,cur};showInfo();
+  if(fit){const N=cs.length;ch.timeScale().setVisibleLogicalRange({from:N-90,to:N+3});}}
+function showInfo(i){if(!lastData)return;const{cs,X,k,cur}=lastData,j=i==null?cs.length-1:i,c=cs[j],dp=DP[coin];
+  const sg=cur?cur.sg:0,pill=`<span class="pill" style="background:${sg===1?"#22c55e":sg===-1?"#ef4444":"#8b949e"}">${sg===1?"بخر":sg===-1?"بفروش":"صبر کن"}</span>`;
+  $("info").innerHTML=`${pill}<span>${coin} ${TFL[tf]}</span><span>امتیاز ${cur&&cur.sc?cur.sc.s.toFixed(1):"—"}</span>`+
+    `<span style="direction:ltr">O ${c.o.toFixed(dp)} H ${c.h.toFixed(dp)} L ${c.l.toFixed(dp)} C ${c.c.toFixed(dp)}</span><span>RSI ${X.R[j]!=null?X.R[j].toFixed(0):"—"}</span>`;}
+let liveBusy=false,lastFull=Date.now();
+async function live(P){if(liveBusy||mode!=="sig")return;liveBusy=true;
+  try{if(Date.now()-lastFull>60000){lastFull=Date.now();liveBusy=false;return loadSigSilent();}
+    const j=await (await fetch(`https://api.exchange.coinbase.com/products/${P}/ticker`)).json(),p=+j.price;
+    if(lastData&&isFinite(p)){const cs=lastData.cs,c=cs[cs.length-1],ms=tf*6e4,b=Math.floor(Date.now()/ms)*ms;
+      if(b>c.t){S.c.update({time:ts(b),open:c.c,high:Math.max(c.c,p),low:Math.min(c.c,p),close:p});cs.push({t:b,o:c.c,h:Math.max(c.c,p),l:Math.min(c.c,p),c:p,v:0});}
+      else{c.h=Math.max(c.h,p);c.l=Math.min(c.l,p);c.c=p;S.c.update({time:ts(c.t),open:c.o,high:c.h,low:c.l,close:c.c});}showInfo();}}catch(e){}
+  liveBusy=false;}
+async function loadSigSilent(){const r=ch.timeScale().getVisibleLogicalRange();await loadSig();if(r)ch.timeScale().setVisibleLogicalRange(r);}
+apply();
+if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{});}
+</script>
+</body>
+</html>
