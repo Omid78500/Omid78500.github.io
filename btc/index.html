@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0f14">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BTC Signal">
+<title>سیگنال‌یاب بیت‌کوین — ۱۰ و ۱۵ دقیقه</title>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b0f14;--card:#141a21;--card2:#0f141a;--line:#2a323c;--txt:#e6edf3;--mut:#8b949e;--up:#22c55e;--dn:#ef4444;--acc:#f7931a;--blue:#58a6ff;--pur:#bc8cff;--yel:#facc15}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font-family:Vazirmatn,Tahoma,sans-serif;font-size:15px;line-height:1.6}
+.wrap{max-width:960px;margin:0 auto;padding:calc(12px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right)) calc(40px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left))}
+header{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap}
+h1{font-size:17px;margin:0;display:flex;align-items:center;gap:8px}
+.coin{width:30px;height:30px;border-radius:50%;background:var(--acc);display:grid;place-items:center;font-weight:800;color:#fff}
+.price{font-size:26px;font-weight:800;direction:ltr;text-align:left}
+.sub{font-size:12px;color:var(--mut)}
+.tabs{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.tab{flex:1;min-width:70px;text-align:center;padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--card);cursor:pointer;font-weight:600}
+.tab.on{background:var(--acc);color:#111;border-color:var(--acc)}
+.tab[disabled]{opacity:.35;pointer-events:none}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:12px}
+.card h3{margin:0 0 8px;font-size:15px}
+.sig{text-align:center;padding:18px 10px;border-radius:14px;margin-top:12px;border:2px solid var(--line)}
+.sig .big{font-size:40px;font-weight:800;line-height:1.2}
+.sig .en{font-size:14px;letter-spacing:3px;opacity:.8;direction:ltr}
+.sig.buy{background:linear-gradient(180deg,rgba(34,197,94,.22),rgba(34,197,94,.05));border-color:var(--up)}
+.sig.sell{background:linear-gradient(180deg,rgba(239,68,68,.22),rgba(239,68,68,.05));border-color:var(--dn)}
+.sig.wait{background:linear-gradient(180deg,rgba(139,148,158,.18),rgba(139,148,158,.04))}
+.bar{height:10px;border-radius:6px;background:#222a33;overflow:hidden;margin:10px auto 4px;max-width:360px}
+.bar i{display:block;height:100%;border-radius:6px}
+.meta{font-size:13px;color:var(--mut)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:8px}
+.stat{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:8px}
+.stat span{font-size:12px;color:var(--mut);display:block}
+.stat b{font-size:16px;direction:ltr;display:block;text-align:right}
+table{width:100%;border-collapse:collapse;font-size:14px}
+td,th{padding:7px 6px;border-bottom:1px solid var(--line);text-align:right}
+th{color:var(--mut);font-weight:600;font-size:12px}
+tr.click{cursor:pointer}
+.pill{display:inline-block;padding:1px 10px;border-radius:20px;font-weight:700;font-size:13px}
+.p-buy{background:rgba(34,197,94,.2);color:var(--up)}.p-sell{background:rgba(239,68,68,.2);color:var(--dn)}.p-wait{background:#2a323c;color:var(--mut)}
+ul.rs{margin:0;padding:0 18px 0 0}ul.rs li{margin:3px 0;font-size:14px}
+.pos{color:var(--up)}.neg{color:var(--dn)}.neu{color:var(--mut)}
+.charts{direction:ltr}
+canvas{display:block;width:100%;touch-action:pan-y}
+.lbl{font-size:12px;color:var(--mut);margin:6px 0 2px;direction:rtl}
+.info{font-size:11px;color:var(--mut);min-height:17px;font-family:monospace}
+.legend{font-size:11px;display:flex;gap:10px;flex-wrap:wrap;direction:rtl;margin-bottom:4px}
+.legend span::before{content:"";display:inline-block;width:12px;height:3px;margin-left:4px;vertical-align:middle;background:var(--c)}
+button{font-family:inherit;font-size:14px;border:1px solid var(--line);background:#1f2730;color:var(--txt);padding:8px 12px;border-radius:9px;cursor:pointer}
+button.pri{background:var(--acc);border-color:var(--acc);color:#111;font-weight:700}
+button.on{border-color:var(--up);color:var(--up)}
+input,select{font-family:inherit;font-size:15px;background:var(--card2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:7px;width:100%;direction:ltr}
+label{font-size:12px;color:var(--mut)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
+.f3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+textarea{width:100%;min-height:100px;background:var(--card2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:8px;font-family:monospace;font-size:12px;direction:ltr}
+a{color:var(--blue);word-break:break-all;font-size:12px}
+.warn{border-color:#9e6a03;background:#231b05;font-size:14px}
+.zoom{display:flex;gap:6px;justify-content:flex-end;margin-bottom:4px}
+.zoom button{padding:3px 12px}
+.small{font-size:12px;color:var(--mut)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div>
+    <h1><span class="coin">₿</span> سیگنال‌یاب بیت‌کوین</h1>
+    <div class="sub" id="status">در حال بارگذاری…</div>
+  </div>
+  <div><div class="price" id="price">—</div><div class="sub" style="text-align:left;direction:ltr" id="chg"></div></div>
+</header>
+
+<div class="tabs" id="tabs"></div>
+<div class="card warn" id="modeBox" style="display:none"></div>
+
+<div class="sig wait" id="sigBox">
+  <div class="big" id="sigFa">—</div>
+  <div class="en" id="sigEn"></div>
+  <div class="bar"><i id="confBar" style="width:0"></i></div>
+  <div class="meta" id="sigMeta"></div>
+  <div class="meta" id="countdown"></div>
+</div>
+
+<div class="card">
+  <h3>🎯 نقشه معامله</h3>
+  <div class="grid" id="plan"></div>
+  <div class="row">
+    <div style="flex:1;min-width:120px"><label>نسبت سود به ضرر</label>
+      <select id="rr"><option value="1.5">1 : 1.5</option><option value="2" selected>1 : 2</option><option value="3">1 : 3</option></select></div>
+    <div style="flex:1;min-width:120px"><label>فاصله حد ضرر (× ATR)</label>
+      <select id="slm"><option value="1">1.0</option><option value="1.5" selected>1.5</option><option value="2">2.0</option></select></div>
+  </div>
+</div>
+
+<div class="card">
+  <h3>🧭 هم‌راستایی تایم‌فریم‌ها</h3>
+  <table><thead><tr><th>تایم‌فریم</th><th>سیگنال</th><th>امتیاز</th><th>روند</th><th>RSI</th></tr></thead><tbody id="mtf"></tbody></table>
+  <div class="small" id="mtfNote" style="margin-top:6px"></div>
+</div>
+
+<div class="card">
+  <h3>📋 دلایل سیگنال</h3>
+  <ul class="rs" id="reasons"></ul>
+</div>
+
+<div class="card charts">
+  <div class="zoom"><button id="zOut">−</button><button id="zIn">+</button></div>
+  <div class="legend"><span style="--c:#facc15">EMA 9</span><span style="--c:#f7931a">EMA 21</span><span style="--c:#58a6ff">EMA 50</span><span style="--c:#bc8cff">Supertrend</span><span style="--c:#9ca3af">VWAP</span><span>▲▼ سیگنال‌های قبلی</span></div>
+  <div class="info" id="info">Tap a candle for details</div>
+  <canvas id="cMain" height="320"></canvas>
+  <div class="lbl">RSI (14) و Stoch RSI</div>
+  <canvas id="cRsi" height="95"></canvas>
+  <div class="lbl">MACD (12, 26, 9)</div>
+  <canvas id="cMacd" height="95"></canvas>
+</div>
+
+<div class="card">
+  <h3>💰 ماشین‌حساب حجم معامله</h3>
+  <div class="f3">
+    <div><label>موجودی ($)</label><input id="bal" type="number" inputmode="decimal" value="100"></div>
+    <div><label>ریسک هر معامله (٪)</label><input id="risk" type="number" inputmode="decimal" value="1" step="0.5"></div>
+    <div><label>اهرم مجاز</label><input id="lev" type="number" inputmode="decimal" value="1"></div>
+  </div>
+  <div class="grid" id="calc" style="margin-top:8px"></div>
+</div>
+
+<div class="card">
+  <h3>🧪 بک‌تست روی داده فعلی</h3>
+  <div class="grid" id="bt"></div>
+  <div class="small" style="margin-top:6px">ورود روی بسته شدن کندلِ سیگنال، خروج با حد ضرر یا حد سود بالا. اگر هر دو در یک کندل خورده باشند، ضرر حساب شده. نتیجه گذشته تضمینی برای آینده نیست.</div>
+</div>
+
+<div class="card">
+  <h3>⚙️ تنظیمات و هشدار</h3>
+  <div class="row">
+    <button id="btnAlert">🔔 هشدار صوتی: خاموش</button>
+    <button id="btnClosed" class="on">فقط کندل بسته‌شده: روشن</button>
+    <button id="btnLive">🔄 اتصال زنده</button>
+    <button id="btnDemo">داده نمونه</button>
+  </div>
+  <div class="small" style="margin-top:6px">«فقط کندل بسته‌شده» جلوی عوض شدن سیگنال وسط کندل را می‌گیرد. هشدار صوتی فقط در حالت زنده و وقتی صفحه باز است کار می‌کند.</div>
+</div>
+
+<div class="card" id="pasteCard">
+  <h3>📥 بارگذاری داده واقعی (برای گوشی)</h3>
+  <div class="small">یکی از لینک‌ها را در مرورگر باز کن، همه متن را کپی کن و این‌جا بچسبان. لینک ۵ دقیقه هر سه تایم‌فریم ۵، ۱۰ و ۱۵ را می‌سازد. لینک ۱۵ دقیقه تاریخچه طولانی‌تری برای ۱۵ دقیقه و ۱ ساعت می‌دهد.</div>
+  <div style="margin:6px 0">۵ دقیقه: <a href="https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=300" target="_blank" rel="noopener">https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=300</a></div>
+  <div style="margin:6px 0">۱۵ دقیقه: <a href="https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=900" target="_blank" rel="noopener">https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=900</a></div>
+  <textarea id="paste" placeholder="[[1731600000,91000,91250,91100,91200,12.3], ...]"></textarea>
+  <div class="row"><button class="pri" id="btnAnalyze">تحلیل کن</button></div>
+  <div class="small" id="pasteMsg"></div>
+</div>
+
+<p class="small">⚠️ این ابزار تحلیل تکنیکال خودکار است و توصیه مالی نیست. هیچ اندیکاتوری آینده را پیش‌بینی نمی‌کند. همیشه حد ضرر بگذار و فقط با پولی معامله کن که توان از دست دادنش را داری.</p>
+</div>
+
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const TFS=[5,10,15,60], TFL={5:"۵ دقیقه",10:"۱۰ دقیقه",15:"۱۵ دقیقه",60:"۱ ساعت"}, HTF={5:15,10:60,15:60,60:null};
+const TH=5, MAXS=14;
+let DS={}, tf=15, source="", isLive=false, liveTimer=null, alertOn=false, useClosed=true, audioCtx=null, lastSig={}, nVis=90, hoverI=null, VIEW=null;
+const store={get(k,d){try{const v=localStorage.getItem("btcsig_"+k);return v==null?d:JSON.parse(v);}catch(e){return d;}},set(k,v){try{localStorage.setItem("btcsig_"+k,JSON.stringify(v));}catch(e){}}};
+tf=store.get("tf",15);["bal","risk","lev"].forEach(k=>{const v=store.get(k,null);if(v!=null)$(k).value=v;});
+["rr","slm"].forEach(k=>{const v=store.get(k,null);if(v!=null)$(k).value=v;});
+
+/* ===== indicators ===== */
+function ema(src,p){const o=Array(src.length).fill(null),k=2/(p+1);let s=0,c=0;
+  for(let i=0;i<src.length;i++){const v=src[i];if(v==null)continue;if(c<p){s+=v;c++;if(c===p)o[i]=s/p;}else o[i]=v*k+o[i-1]*(1-k);}return o;}
+function sma(src,p){const o=Array(src.length).fill(null);
+  for(let i=p-1;i<src.length;i++){let s=0,ok=true;for(let j=i-p+1;j<=i;j++){if(src[j]==null){ok=false;break;}s+=src[j];}if(ok)o[i]=s/p;}return o;}
+function rsi(src,p=14){const o=Array(src.length).fill(null);let g=0,l=0;
+  for(let i=1;i<src.length;i++){const d=src[i]-src[i-1],G=Math.max(d,0),L=Math.max(-d,0);
+    if(i<=p){g+=G;l+=L;if(i===p){g/=p;l/=p;o[i]=l===0?100:100-100/(1+g/l);}}else{g=(g*(p-1)+G)/p;l=(l*(p-1)+L)/p;o[i]=l===0?100:100-100/(1+g/l);}}return o;}
+function stochRsi(R,p=14){const raw=R.map((v,i)=>{if(v==null||i<p-1)return null;let mn=Infinity,mx=-Infinity;
+  for(let j=i-p+1;j<=i;j++){if(R[j]==null)return null;mn=Math.min(mn,R[j]);mx=Math.max(mx,R[j]);}return mx===mn?50:(v-mn)/(mx-mn)*100;});
+  const k=sma(raw,3);return{k,d:sma(k,3)};}
+function macd(C){const a=ema(C,12),b=ema(C,26),m=C.map((_,i)=>a[i]!=null&&b[i]!=null?a[i]-b[i]:null),s=ema(m,9);
+  return{m,s,h:m.map((v,i)=>v!=null&&s[i]!=null?v-s[i]:null)};}
+function trs(cs){return cs.map((c,i)=>i?Math.max(c.h-c.l,Math.abs(c.h-cs[i-1].c),Math.abs(c.l-cs[i-1].c)):c.h-c.l);}
+function wilder(src,p){const o=Array(src.length).fill(null);let a=0;
+  for(let i=1;i<src.length;i++){if(i<=p){a+=src[i];if(i===p){a/=p;o[i]=a;}}else{a=(a*(p-1)+src[i])/p;o[i]=a;}}return o;}
+function atr(cs,p=14){return wilder(trs(cs),p);}
+function adx(cs,p=14){const n=cs.length,pd=[0],md=[0];
+  for(let i=1;i<n;i++){const up=cs[i].h-cs[i-1].h,dn=cs[i-1].l-cs[i].l;pd.push(up>dn&&up>0?up:0);md.push(dn>up&&dn>0?dn:0);}
+  const tr=wilder(trs(cs),p),sp=wilder(pd,p),sm=wilder(md,p),pdi=[],mdi=[],dx=[];
+  for(let i=0;i<n;i++){if(tr[i]==null||tr[i]===0){pdi.push(null);mdi.push(null);dx.push(null);continue;}
+    const P=100*sp[i]/tr[i],M=100*sm[i]/tr[i];pdi.push(P);mdi.push(M);dx.push(P+M===0?0:100*Math.abs(P-M)/(P+M));}
+  const o=Array(n).fill(null);let a=0,c=0,st=dx.findIndex(v=>v!=null);
+  for(let i=st;i>=0&&i<n;i++){if(c<p){a+=dx[i];c++;if(c===p){a/=p;o[i]=a;}}else{a=(a*(p-1)+dx[i])/p;o[i]=a;}}
+  return{adx:o,pdi,mdi};}
+function supertrend(cs,p=10,m=3){const A=atr(cs,p),n=cs.length,fu=Array(n).fill(null),fl=Array(n).fill(null),dir=Array(n).fill(0),line=Array(n).fill(null);
+  for(let i=0;i<n;i++){if(A[i]==null)continue;const hl=(cs[i].h+cs[i].l)/2,bu=hl+m*A[i],bl=hl-m*A[i];
+    if(fu[i-1]==null){fu[i]=bu;fl[i]=bl;dir[i]=cs[i].c>=hl?1:-1;}
+    else{const pc=cs[i-1].c;fu[i]=(bu<fu[i-1]||pc>fu[i-1])?bu:fu[i-1];fl[i]=(bl>fl[i-1]||pc<fl[i-1])?bl:fl[i-1];
+      dir[i]=dir[i-1]===-1?(cs[i].c>fu[i]?1:-1):(cs[i].c<fl[i]?-1:1);}
+    line[i]=dir[i]===1?fl[i]:fu[i];}
+  return{dir,line};}
+function vwap(cs){let d=-1,pv=0,vv=0;return cs.map(c=>{const day=Math.floor(c.t/864e5);if(day!==d){d=day;pv=0;vv=0;}
+  const tp=(c.h+c.l+c.c)/3;pv+=tp*c.v;vv+=c.v;return vv?pv/vv:tp;});}
+function obv(cs){let o=0;return cs.map((c,i)=>{if(i){if(c.c>cs[i-1].c)o+=c.v;else if(c.c<cs[i-1].c)o-=c.v;}return o;});}
+
+/* ===== data ===== */
+function normalize(rows){rows=rows.filter(r=>[r.t,r.o,r.h,r.l,r.c].every(Number.isFinite));const m=new Map();rows.forEach(r=>{if(!Number.isFinite(r.v))r.v=0;m.set(r.t,r);});
+  return[...m.values()].sort((a,b)=>a.t-b.t);}
+function parseText(txt){txt=txt.trim();let j=null;try{j=JSON.parse(txt);}catch(e){}
+  if(j){if(j.result&&typeof j.result==="object"){const k=Object.keys(j.result).find(x=>Array.isArray(j.result[x]));
+      if(k)return normalize(j.result[k].map(r=>({t:r[0]*1000,o:+r[1],h:+r[2],l:+r[3],c:+r[4],v:+r[6]})));}
+    if(Array.isArray(j)&&Array.isArray(j[0])){if(j[0].length>=11)return normalize(j.map(r=>({t:+r[0],o:+r[1],h:+r[2],l:+r[3],c:+r[4],v:+r[5]})));
+      if(j[0].length===6)return normalize(j.map(r=>({t:r[0]*1000,l:+r[1],h:+r[2],o:+r[3],c:+r[4],v:+r[5]})));}
+    throw new Error("قالب JSON شناخته نشد");}
+  const rows=txt.split(/\r?\n/).map(s=>s.split(/[,;\t]/).map(x=>x.trim())).filter(r=>r.length>=5&&!isNaN(parseFloat(r[1])));
+  if(!rows.length)throw new Error("داده‌ای پیدا نشد");
+  return normalize(rows.map(r=>{let t=isNaN(+r[0])?Date.parse(r[0]):+r[0];if(t<1e11)t*=1000;return{t,o:+r[1],h:+r[2],l:+r[3],c:+r[4],v:r[5]!=null?+r[5]:0};}));}
+function interval(cs){const d=[];for(let i=1;i<cs.length;i++)d.push((cs[i].t-cs[i-1].t)/6e4);d.sort((a,b)=>a-b);return Math.round(d[Math.floor(d.length/2)]||0);}
+function agg(cs,base,to){if(to===base)return cs.slice();const ms=to*6e4,need=to/base,out=[];let cur=null;
+  for(const c of cs){const b=Math.floor(c.t/ms)*ms;if(!cur||cur.t!==b){if(cur)out.push(cur);cur={t:b,o:c.o,h:c.h,l:c.l,c:c.c,v:c.v,n:1};}
+    else{cur.h=Math.max(cur.h,c.h);cur.l=Math.min(cur.l,c.l);cur.c=c.c;cur.v+=c.v;cur.n++;}}
+  if(cur)out.push(cur);if(out.length&&out[0].n<need)out.shift();return out;}
+function buildFrom(cs){const g=interval(cs),ds={};
+  TFS.forEach(t=>{if(t>=g&&t%g===0){const a=agg(cs,g,t);if(a.length>=40)ds[t]=a;}});return{ds,g};}
+
+async function getJSON(url){const ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),7000);
+  try{const r=await fetch(url,{signal:ctl.signal});if(!r.ok)throw new Error(r.status);return parseText(await r.text());}finally{clearTimeout(to);}}
+async function coinbase(gran,pages){let all=[],end=Date.now();
+  for(let p=0;p<pages;p++){const start=end-300*gran*1000;
+    const u=`https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=${gran}&start=${new Date(start).toISOString()}&end=${new Date(end).toISOString()}`;
+    all=all.concat(await getJSON(u));end=start;}return normalize(all);}
+async function binance(host,iv){return getJSON(`https://${host}/api/v3/klines?symbol=BTCUSDT&interval=${iv}&limit=1000`);}
+async function fetchLive(){
+  try{const[a,b,c]=await Promise.all([coinbase(300,2),coinbase(900,1),coinbase(3600,1)]);
+    if(a.length>100)return{ds:{5:a,10:agg(a,5,10),15:b.length>60?b:agg(a,5,15),60:c},name:"Coinbase"};}catch(e){}
+  for(const h of["api.binance.us","api.binance.com"]){try{const[a,b,c]=await Promise.all([binance(h,"5m"),binance(h,"15m"),binance(h,"1h")]);
+    if(a.length>100)return{ds:{5:a,10:agg(a,5,10),15:b,60:c},name:h.includes(".us")?"Binance.US":"Binance"};}catch(e){}}
+  return null;}
+
+/* ===== analysis ===== */
+function ctx(cs,htfCs,tfm,htfm){
+  const C=cs.map(c=>c.c),R=rsi(C),M=macd(C),S=stochRsi(R),ST=supertrend(cs),AD=adx(cs),OB=obv(cs);
+  const X={cs,C,tfm,htfm,e9:ema(C,9),e21:ema(C,21),e50:ema(C,50),e200:ema(C,200),R,sk:S.k,sd:S.d,mm:M.m,ms:M.s,mh:M.h,atr:atr(cs,14),
+    st:ST.dir,stl:ST.line,adx:AD.adx,pdi:AD.pdi,mdi:AD.mdi,vw:vwap(cs),obv:OB,obvE:ema(OB,20),vAvg:sma(cs.map(c=>c.v),20),htf:null};
+  if(htfCs&&htfCs.length>=30){const hc=htfCs.map(c=>c.c),h20=ema(hc,20),h50=ema(hc,50);
+    const tr=hc.map((c,i)=>h20[i]==null||h50[i]==null?null:(c>h20[i]&&h20[i]>h50[i]?1:c<h20[i]&&h20[i]<h50[i]?-1:0));
+    X.htf=Array(cs.length).fill(null);let j=-1;
+    for(let i=0;i<cs.length;i++){const te=cs[i].t+tfm*6e4;while(j+1<htfCs.length&&htfCs[j+1].t+htfm*6e4<=te)j++;X.htf[i]=j>=0?tr[j]:null;}}
+  return X;}
+function pattern(cs,i,X){const c=cs[i],p=cs[i-1];if(!p)return 0;const body=Math.abs(c.c-c.o),up=c.h-Math.max(c.o,c.c),lo=Math.min(c.o,c.c)-c.l,rng=c.h-c.l||1;
+  if(p.c<p.o&&c.c>c.o&&c.o<=p.c&&c.c>=p.o&&body>rng*0.5)return{p:1,t:"الگوی پوشای صعودی (Bullish Engulfing)"};
+  if(p.c>p.o&&c.c<c.o&&c.o>=p.c&&c.c<=p.o&&body>rng*0.5)return{p:-1,t:"الگوی پوشای نزولی (Bearish Engulfing)"};
+  if(body>0&&lo>=2*body&&up<=body*0.6&&c.c<X.e21[i])return{p:1,t:"کندل چکش (Hammer) در کف"};
+  if(body>0&&up>=2*body&&lo<=body*0.6&&c.c>X.e21[i])return{p:-1,t:"کندل ستاره دنباله‌دار (Shooting Star) در سقف"};
+  return 0;}
+function scoreAt(X,i){const r=[];let s=0;const add=(p,t)=>{s+=p;r.push({p,t});},c=X.C[i];
+  if(X.e50[i]==null||X.mh[i]==null||X.R[i]==null)return null;
+  if(X.e9[i]>X.e21[i]&&X.e21[i]>X.e50[i])add(2,"EMA 9 > 21 > 50 — روند صعودی مرتب");
+  else if(X.e9[i]<X.e21[i]&&X.e21[i]<X.e50[i])add(-2,"EMA 9 < 21 < 50 — روند نزولی مرتب");
+  else add(0,"میانگین‌های متحرک درهم — روند مشخص نیست");
+  if(X.e200[i]!=null)add(c>X.e200[i]?1:-1,`قیمت ${c>X.e200[i]?"بالای":"زیر"} EMA 200`);
+  if(X.htf&&X.htf[i]!=null){const h=X.htf[i];add(h*2,h===1?`روند تایم‌فریم بالاتر (${TFL[X.htfm]}) صعودی`:h===-1?`روند تایم‌فریم بالاتر (${TFL[X.htfm]}) نزولی`:`روند تایم‌فریم بالاتر (${TFL[X.htfm]}) خنثی`);}
+  if(X.st[i]){const flip=X.st[i-1]&&X.st[i-1]!==X.st[i];add(X.st[i]*2,X.st[i]===1?(flip?"سوپرترند همین الان صعودی شد":"سوپرترند صعودی"):(flip?"سوپرترند همین الان نزولی شد":"سوپرترند نزولی"));}
+  let cross=0;for(let k=i-2;k<=i;k++){const a=X.mh[k-1],b=X.mh[k];if(a!=null&&b!=null){if(a<=0&&b>0)cross=1;if(a>=0&&b<0)cross=-1;}}
+  if(cross)add(cross*2,cross===1?"کراس صعودی MACD در چند کندل اخیر":"کراس نزولی MACD در چند کندل اخیر");
+  else add(X.mh[i]>0?1:-1,X.mh[i]>0?"هیستوگرام MACD مثبت":"هیستوگرام MACD منفی");
+  const rv=X.R[i];
+  if(rv>75)add(-1,`RSI ${rv.toFixed(1)} — اشباع خرید شدید`);else if(rv<25)add(1,`RSI ${rv.toFixed(1)} — اشباع فروش شدید`);
+  else add(rv>=50?1:-1,`RSI ${rv.toFixed(1)} — مومنتوم ${rv>=50?"مثبت":"منفی"}`);
+  let sc=0;for(let k=i-1;k<=i;k++){const k0=X.sk[k-1],d0=X.sd[k-1],k1=X.sk[k],d1=X.sd[k];
+    if([k0,d0,k1,d1].every(v=>v!=null)){if(k0<=d0&&k1>d1&&k1<35)sc=1;if(k0>=d0&&k1<d1&&k1>65)sc=-1;}}
+  if(sc)add(sc,sc===1?"Stoch RSI از ناحیه اشباع فروش رو به بالا کراس کرد":"Stoch RSI از ناحیه اشباع خرید رو به پایین کراس کرد");
+  add(c>X.vw[i]?1:-1,`قیمت ${c>X.vw[i]?"بالای":"زیر"} VWAP روزانه`);
+  if(X.obvE[i]!=null)add(X.obv[i]>X.obvE[i]?1:-1,X.obv[i]>X.obvE[i]?"OBV بالای میانگین — ورود پول":"OBV زیر میانگین — خروج پول");
+  const pt=pattern(X.cs,i,X);if(pt)add(pt.p,pt.t);
+  let fs=s;const ad=X.adx[i];
+  if(ad!=null){if(ad<18){fs=s*0.6;r.push({p:0,t:`ADX ${ad.toFixed(0)} — بازار بی‌روند/رنج، قدرت سیگنال کم شد`});}
+    else r.push({p:0,t:`ADX ${ad.toFixed(0)} — ${ad>25?"روند قوی":"روند متوسط"}`});}
+  if(X.vAvg[i]&&X.cs[i].v>1.8*X.vAvg[i])r.push({p:0,t:`حجم کندل ${(X.cs[i].v/X.vAvg[i]).toFixed(1)} برابر میانگین`});
+  return{s:fs,raw:s,r};}
+const sigOf=s=>s==null?0:s>=TH?1:s<=-TH?-1:0;
+function divergence(X,k){const piv=(arr,i,f)=>{for(let j=1;j<=3;j++){if(f(arr[i-j],arr[i])||f(arr[i+j],arr[i]))return false;}return true;};
+  const lows=[],highs=[];for(let i=Math.max(4,k-45);i<=k-3;i++){if(piv(X.cs.map(c=>c.l),i,(a,b)=>a<b))lows.push(i);if(piv(X.cs.map(c=>c.h),i,(a,b)=>a>b))highs.push(i);}
+  if(lows.length>=2){const[a,b]=lows.slice(-2);if(X.cs[b].l<X.cs[a].l&&X.R[b]>X.R[a])return{p:1,t:"واگرایی مثبت RSI (کف پایین‌تر قیمت، کف بالاتر RSI)"};}
+  if(highs.length>=2){const[a,b]=highs.slice(-2);if(X.cs[b].h>X.cs[a].h&&X.R[b]<X.R[a])return{p:-1,t:"واگرایی منفی RSI (سقف بالاتر قیمت، سقف پایین‌تر RSI)"};}
+  return null;}
+function levels(X,k){const cs=X.cs,c=X.C[k];let sup=null,res=null;
+  for(let i=Math.max(3,k-80);i<=k-3;i++){const isL=[1,2,3].every(j=>cs[i].l<=cs[i-j].l&&cs[i].l<=cs[i+j].l),isH=[1,2,3].every(j=>cs[i].h>=cs[i-j].h&&cs[i].h>=cs[i+j].h);
+    if(isL&&cs[i].l<c&&(sup==null||cs[i].l>sup))sup=cs[i].l;if(isH&&cs[i].h>c&&(res==null||cs[i].h<res))res=cs[i].h;}
+  return{sup,res};}
+function backtest(X,k,rr,slm){const T=[],marks=[];let pos=null,prev=0;
+  for(let i=60;i<=k;i++){
+    if(pos){const c=X.cs[i];const hitSL=pos.d===1?c.l<=pos.sl:c.h>=pos.sl,hitTP=pos.d===1?c.h>=pos.tp:c.l<=pos.tp;
+      if(hitSL||hitTP){T.push({...pos,win:!hitSL,exit:i});pos=null;}}
+    const sc=scoreAt(X,i),sg=sigOf(sc&&sc.s);
+    if(sg&&sg!==prev){marks.push({i,d:sg});if(!pos&&X.atr[i]){const e=X.C[i],risk=slm*X.atr[i];pos={d:sg,i,e,sl:e-sg*risk,tp:e+sg*risk*rr};}}
+    prev=sg;}
+  const w=T.filter(t=>t.win).length;return{T,marks,n:T.length,w,wr:T.length?w/T.length*100:0,netR:w*rr-(T.length-w),open:pos};}
+function closedIdx(cs,tfm){const n=cs.length-1;if(!useClosed)return n;return cs[n].t+tfm*6e4>Date.now()+5000?n-1:n;}
+function analyzeTF(t){const cs=DS[t];if(!cs||cs.length<60)return null;const h=HTF[t],X=ctx(cs,h?DS[h]:null,t,h),k=closedIdx(cs,t),sc=scoreAt(X,k);
+  if(!sc)return null;const sg=sigOf(sc.s);let since=0;for(let i=k-1;i>60;i--){const s2=scoreAt(X,i);if(sigOf(s2&&s2.s)!==sg)break;since++;}
+  return{X,k,sc,sg,since};}
+
+/* ===== format ===== */
+const fmt=(v,d=2)=>v==null||!isFinite(v)?"—":Number(v).toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
+const fa=n=>Number(n).toLocaleString("fa-IR");
+const hm=t=>new Date(t).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
+const SIG={1:{fa:"بخر",en:"BUY",cls:"buy",pill:"p-buy"},"-1":{fa:"بفروش",en:"SELL",cls:"sell",pill:"p-sell"},0:{fa:"صبر کن",en:"WAIT",cls:"wait",pill:"p-wait"}};
+
+/* ===== render ===== */
+function renderTabs(){$("tabs").innerHTML=TFS.map(t=>`<div class="tab ${t===tf?"on":""}" ${DS[t]&&DS[t].length>=60?"":"disabled"} data-t="${t}">${TFL[t]}</div>`).join("");
+  document.querySelectorAll(".tab").forEach(el=>el.onclick=()=>{tf=+el.dataset.t;store.set("tf",tf);hoverI=null;render();});}
+function render(){
+  if(!(DS[tf]&&DS[tf].length>=60)){const alt=[15,10,5,60].find(t=>DS[t]&&DS[t].length>=60);if(alt==null){$("status").textContent="داده کافی نیست";return;}tf=alt;}
+  renderTabs();
+  const A=analyzeTF(tf);if(!A)return;const{X,k,sc,sg,since}=A,cs=DS[tf],last=cs[cs.length-1],rr=+$("rr").value,slm=+$("slm").value;
+  const p1=cs[Math.max(0,cs.length-1-Math.round(60/tf))].c,ch=(last.c-p1)/p1*100;
+  $("price").textContent="$"+fmt(last.c);$("chg").innerHTML=`<span class="${ch>=0?"pos":"neg"}">${ch>=0?"+":""}${fmt(ch)}% · 1h</span>`;
+  $("status").textContent=`منبع: ${source} · آخرین کندل ${hm(last.t)} · ${fa(cs.length)} کندل ${TFL[tf]}`;
+  const S=SIG[sg],conf=Math.min(100,50+(Math.abs(sc.s)-TH)/(MAXS-TH)*50);
+  $("sigBox").className="sig "+S.cls;$("sigFa").textContent=S.fa;$("sigEn").textContent=S.en+" · "+TFL[tf];
+  $("confBar").style.width=(sg?conf:Math.abs(sc.s)/TH*40)+"%";$("confBar").style.background=sg===1?"var(--up)":sg===-1?"var(--dn)":"#6b7280";
+  $("sigMeta").textContent=`امتیاز ${fmt(sc.s,1)} از ±${fa(MAXS)} · قدرت ${sg?fa(Math.round(conf))+"٪":"زیر آستانه"} · ${since?fa(since)+" کندل است که این سیگنال برقرار است":"سیگنال تازه"}`+(k<cs.length-1?" · بر اساس آخرین کندل بسته‌شده":"");
+  // plan
+  const e=X.C[k],a=X.atr[k],risk=slm*a,lv=levels(X,k),dir=sg||(sc.s>=0?1:-1);
+  const sl=e-dir*risk,tp1=e+dir*risk,tp2=e+dir*risk*rr;
+  const planItems=[["نقطه ورود",fmt(e)],[sg?"حد ضرر":"حد ضرر (اگر وارد شوی)",fmt(sl)],["حد سود ۱ (۱R)",fmt(tp1)],[`حد سود ۲ (${rr}R)`,fmt(tp2)],
+    ["حمایت نزدیک",fmt(lv.sup)],["مقاومت نزدیک",fmt(lv.res)],["ATR",fmt(a)],["Supertrend",fmt(X.stl[k])]];
+  $("plan").innerHTML=(sg?"":`<div class="stat" style="grid-column:1/-1"><span>الان شرایط ورود فراهم نیست. اعداد زیر برای سناریوی ${dir===1?"خرید":"فروش"} (طرفی که امتیاز به آن تمایل دارد) است.</span></div>`)+
+    planItems.map(([t,v])=>`<div class="stat"><span>${t}</span><b>${v}</b></div>`).join("");
+  // MTF
+  const rows=TFS.filter(t=>DS[t]&&DS[t].length>=60).map(t=>{const B=t===tf?A:analyzeTF(t);if(!B)return"";const s2=SIG[B.sg],x=B.X,kk=B.k;
+    const tr=x.e21[kk]>x.e50[kk]?'<span class="pos">صعودی</span>':'<span class="neg">نزولی</span>';
+    return{t,sg:B.sg,html:`<tr class="click" data-t="${t}" style="${t===tf?"background:#1b232c":""}"><td>${TFL[t]}</td><td><span class="pill ${s2.pill}">${s2.fa}</span></td><td style="direction:ltr;text-align:right">${fmt(B.sc.s,1)}</td><td>${tr}</td><td>${fmt(x.R[kk],0)}</td></tr>`};}).filter(Boolean);
+  $("mtf").innerHTML=rows.map(r=>r.html).join("");
+  document.querySelectorAll("#mtf tr.click").forEach(el=>el.onclick=()=>{tf=+el.dataset.t;store.set("tf",tf);render();});
+  const ups=rows.filter(r=>r.sg===1).length,dns=rows.filter(r=>r.sg===-1).length;
+  $("mtfNote").textContent=ups&&!dns?"همه سیگنال‌های فعال صعودی‌اند. هم‌راستایی مثبت است.":dns&&!ups?"همه سیگنال‌های فعال نزولی‌اند. هم‌راستایی منفی است.":ups&&dns?"تایم‌فریم‌ها با هم تضاد دارند. احتیاط کن یا صبر کن.":"هیچ تایم‌فریمی سیگنال قطعی ندارد.";
+  // reasons
+  const dv=divergence(X,k);const rs=sc.r.slice();if(dv)rs.push({p:0,t:"⚡ "+dv.t+" (بدون امتیاز، فقط هشدار)"});
+  $("reasons").innerHTML=rs.map(x=>`<li class="${x.p>0?"pos":x.p<0?"neg":"neu"}">${x.p>0?"▲ +"+x.p:x.p<0?"▼ "+x.p:"•"} ${x.t}</li>`).join("");
+  // calc
+  const bal=+$("bal").value||0,rk=+$("risk").value||0,lev=+$("lev").value||1,rUSD=bal*rk/100,size=risk?rUSD/risk:0,notional=size*e,need=bal?notional/bal:0;
+  const fitSize=need>lev?bal*lev/e:size;
+  $("calc").innerHTML=[["مبلغ ریسک","$"+fmt(rUSD)],["حجم پیشنهادی (BTC)",fmt(fitSize,6)],["ارزش پوزیشن","$"+fmt(fitSize*e)],
+    ["سود در حد سود ۲","$"+fmt(fitSize*risk*rr)],["ضرر در حد ضرر","$"+fmt(fitSize*risk)],["اهرم لازم",fmt(need,2)+"x"]].map(([t,v])=>`<div class="stat"><span>${t}</span><b>${v}</b></div>`).join("")+
+    (need>lev?`<div class="stat" style="grid-column:1/-1"><span class="neg">با این اهرم، حجم محدود شد و ریسک واقعی کمتر از ${fa(rk)}٪ است.</span></div>`:"");
+  // backtest
+  const bt=backtest(X,k,rr,slm);VIEW={X,k,bt,sl:sg?sl:null,tp:sg?tp2:null,e:sg?e:null};
+  $("bt").innerHTML=[["تعداد معامله",fa(bt.n)],["معاملات برنده",fa(bt.w)],["درصد برد",fa(Math.round(bt.wr))+"٪"],["سود خالص (R)",(bt.netR>=0?"+":"")+fmt(bt.netR,1)+"R"],
+    ["نرخ برد لازم برای سربه‌سر",fa(Math.round(100/(1+rr)))+"٪"],["معامله باز",bt.open?(bt.open.d===1?"خرید":"فروش"):"ندارد"]].map(([t,v])=>`<div class="stat"><span>${t}</span><b>${v}</b></div>`).join("");
+  // alert
+  const key=tf;if(isLive&&alertOn&&lastSig[key]!==undefined&&lastSig[key]!==sg&&sg!==0)beep(sg);lastSig[key]=sg;
+  draw();}
+
+/* ===== charts ===== */
+const AX=60;
+function setup(cv){const dpr=window.devicePixelRatio||1,w=cv.clientWidth,h=+cv.getAttribute("height");cv.width=w*dpr;cv.height=h*dpr;cv.style.height=h+"px";
+  const g=cv.getContext("2d");g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,w,h);return{g,w,h};}
+function win(w){const L=VIEW.X.cs.length,N=Math.min(L,Math.max(30,nVis));return{s:L-N,N,cw:(w-AX)/N};}
+function line(g,arr,s,N,cw,y,col,wd=1.3,dash){g.strokeStyle=col;g.lineWidth=wd;g.setLineDash(dash||[]);g.beginPath();let on=false;
+  for(let i=0;i<N;i++){const v=arr[s+i];if(v==null){on=false;continue;}const x=i*cw+cw/2;on?g.lineTo(x,y(v)):g.moveTo(x,y(v));on=true;}g.stroke();g.setLineDash([]);}
+function nice(a,b,k=5){const st=(b-a)/k,m=Math.pow(10,Math.floor(Math.log10(st))),step=[1,2,2.5,5,10].map(x=>x*m).find(x=>x>=st),o=[];for(let v=Math.ceil(a/step)*step;v<=b;v+=step)o.push(v);return o;}
+function axis(g,w,ticks,y,d){g.font="10px sans-serif";g.textAlign="left";ticks.forEach(v=>{const yy=y(v);g.strokeStyle="#1d242c";g.lineWidth=1;g.beginPath();g.moveTo(0,yy);g.lineTo(w-AX,yy);g.stroke();g.fillStyle="#8b949e";g.fillText(fmt(v,d),w-AX+4,yy+3);});}
+function tag(g,w,y,v,bg,fg){g.fillStyle=bg;g.fillRect(w-AX,y-8,AX,16);g.fillStyle=fg;g.font="bold 10px sans-serif";g.textAlign="left";g.fillText(fmt(v,0),w-AX+4,y+4);}
+function draw(){if(!VIEW)return;const{X,k,bt}=VIEW,cs=X.cs;
+  let{g,w,h}=setup($("cMain"));const{s,N,cw}=win(w);let mn=Infinity,mx=-Infinity;
+  for(let i=s;i<cs.length;i++){mn=Math.min(mn,cs[i].l);mx=Math.max(mx,cs[i].h);}
+  [VIEW.sl,VIEW.tp].forEach(v=>{if(v!=null){mn=Math.min(mn,v);mx=Math.max(mx,v);}});
+  const pad=(mx-mn)*0.07;mn-=pad;mx+=pad;const ph=h-18,y=v=>ph-(v-mn)/(mx-mn)*ph;
+  axis(g,w,nice(mn,mx),y,0);
+  line(g,X.vw,s,N,cw,y,"#9ca3af",1,[3,3]);
+  for(let i=0;i<N;i++){const j=s+i;if(X.stl[j]==null||X.stl[j-1]==null||X.st[j]!==X.st[j-1])continue;g.strokeStyle=X.st[j]===1?"rgba(34,197,94,.55)":"rgba(239,68,68,.55)";g.lineWidth=2;
+    g.beginPath();g.moveTo((i-1)*cw+cw/2,y(X.stl[j-1]));g.lineTo(i*cw+cw/2,y(X.stl[j]));g.stroke();}
+  for(let i=0;i<N;i++){const c=cs[s+i],x=i*cw+cw/2,up=c.c>=c.o;g.strokeStyle=g.fillStyle=up?"#22c55e":"#ef4444";
+    g.lineWidth=1;g.beginPath();g.moveTo(x,y(c.h));g.lineTo(x,y(c.l));g.stroke();const bw=Math.max(1,cw*0.65);g.fillRect(x-bw/2,y(Math.max(c.o,c.c)),bw,Math.max(1,Math.abs(y(c.o)-y(c.c))));}
+  line(g,X.e9,s,N,cw,y,"#facc15",1.1);line(g,X.e21,s,N,cw,y,"#f7931a",1.3);line(g,X.e50,s,N,cw,y,"#58a6ff",1.3);
+  g.font="bold 12px sans-serif";g.textAlign="center";
+  bt.marks.forEach(m=>{if(m.i<s)return;const x=(m.i-s)*cw+cw/2,c=cs[m.i];g.fillStyle=m.d===1?"#22c55e":"#ef4444";g.fillText(m.d===1?"▲":"▼",x,m.d===1?Math.min(ph-2,y(c.l)+13):Math.max(10,y(c.h)-4));});
+  if(VIEW.e!=null){[[VIEW.e,"#e6edf3","ENTRY"],[VIEW.sl,"#ef4444","SL"],[VIEW.tp,"#22c55e","TP"]].forEach(([v,col,t])=>{g.strokeStyle=col;g.setLineDash([5,4]);g.beginPath();g.moveTo(0,y(v));g.lineTo(w-AX,y(v));g.stroke();g.setLineDash([]);
+    g.fillStyle=col;g.font="10px sans-serif";g.textAlign="left";g.fillText(t,4,y(v)-3);});}
+  tag(g,w,y(cs[cs.length-1].c),cs[cs.length-1].c,"#f7931a","#111");
+  g.fillStyle="#8b949e";g.font="10px sans-serif";g.textAlign="center";const ev=Math.ceil(N/5);for(let i=ev-1;i<N;i+=ev)g.fillText(hm(cs[s+i].t),i*cw+cw/2,h-4);
+  if(k<cs.length-1&&k>=s){g.fillStyle="rgba(255,255,255,.04)";g.fillRect((k-s+0.5)*cw+cw/2,0,cw,ph);}
+  if(hoverI!=null&&hoverI<N){g.strokeStyle="rgba(255,255,255,.35)";g.beginPath();g.moveTo(hoverI*cw+cw/2,0);g.lineTo(hoverI*cw+cw/2,ph);g.stroke();}
+  // RSI
+  ({g,w,h}=setup($("cRsi")));const yr=v=>h-4-(v/100)*(h-8);g.fillStyle="rgba(88,166,255,.06)";g.fillRect(0,yr(70),w-AX,yr(30)-yr(70));
+  axis(g,w,[30,50,70],yr,0);line(g,X.sk,s,N,cw,yr,"rgba(250,204,21,.55)",1);line(g,X.sd,s,N,cw,yr,"rgba(247,147,26,.45)",1);line(g,X.R,s,N,cw,yr,"#bc8cff",1.6);
+  // MACD
+  ({g,w,h}=setup($("cMacd")));let ab=0;for(let i=s;i<cs.length;i++)[X.mm[i],X.ms[i],X.mh[i]].forEach(v=>{if(v!=null)ab=Math.max(ab,Math.abs(v));});ab=ab||1;
+  const ym=v=>h/2-(v/ab)*(h/2-6);axis(g,w,[0],ym,0);
+  for(let i=0;i<N;i++){const v=X.mh[s+i];if(v==null)continue;g.fillStyle=v>=0?"rgba(34,197,94,.65)":"rgba(239,68,68,.65)";const bw=Math.max(1,cw*0.6);g.fillRect(i*cw+cw/2-bw/2,Math.min(ym(0),ym(v)),bw,Math.abs(ym(v)-ym(0)));}
+  line(g,X.mm,s,N,cw,ym,"#58a6ff");line(g,X.ms,s,N,cw,ym,"#f7931a");}
+function hover(ev){if(!VIEW)return;const rc=$("cMain").getBoundingClientRect(),{s,N,cw}=win(rc.width),i=Math.floor((ev.clientX-rc.left)/cw);if(i<0||i>=N)return;
+  hoverI=i;const j=s+i,c=VIEW.X.cs[j],sc=scoreAt(VIEW.X,j);
+  $("info").textContent=`${hm(c.t)} O ${fmt(c.o,0)} H ${fmt(c.h,0)} L ${fmt(c.l,0)} C ${fmt(c.c,0)} | RSI ${fmt(VIEW.X.R[j],0)} | score ${sc?fmt(sc.s,1):"—"}`;draw();}
+$("cMain").addEventListener("pointerdown",hover);$("cMain").addEventListener("pointermove",e=>{if(e.pointerType==="mouse")hover(e);});
+$("zIn").onclick=()=>{nVis=Math.max(30,Math.round(nVis/1.4));draw();};$("zOut").onclick=()=>{nVis=Math.min(400,Math.round(nVis*1.4));draw();};
+window.addEventListener("resize",()=>draw());
+
+/* ===== alerts ===== */
+function beep(d){try{if(!audioCtx)return;const o=audioCtx.createOscillator(),gn=audioCtx.createGain();o.connect(gn);gn.connect(audioCtx.destination);
+  o.frequency.value=d===1?880:440;gn.gain.setValueAtTime(.25,audioCtx.currentTime);gn.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+.8);o.start();o.stop(audioCtx.currentTime+.8);}catch(e){}
+  try{navigator.vibrate&&navigator.vibrate([200,100,200]);}catch(e){}}
+$("btnAlert").onclick=()=>{alertOn=!alertOn;if(alertOn){try{audioCtx=audioCtx||new(window.AudioContext||window.webkitAudioContext)();audioCtx.resume();}catch(e){}beep(1);}
+  $("btnAlert").textContent="🔔 هشدار صوتی: "+(alertOn?"روشن":"خاموش");$("btnAlert").classList.toggle("on",alertOn);};
+$("btnClosed").onclick=()=>{useClosed=!useClosed;$("btnClosed").textContent="فقط کندل بسته‌شده: "+(useClosed?"روشن":"خاموش");$("btnClosed").classList.toggle("on",useClosed);render();};
+["rr","slm","bal","risk","lev"].forEach(id=>$(id).addEventListener("input",()=>{store.set(id,$(id).value);render();}));
+
+/* ===== countdown ===== */
+setInterval(()=>{const ms=tf*6e4,left=ms-Date.now()%ms,m=Math.floor(left/6e4),s=Math.floor(left%6e4/1000);
+  $("countdown").textContent=isLive?`⏱ بسته شدن کندل ${TFL[tf]} بعدی: ${fa(m)}:${s.toString().padStart(2,"0").replace(/\d/g,d=>"۰۱۲۳۴۵۶۷۸۹"[d])}`:"";},1000);
+
+/* ===== modes ===== */
+async function goLive(){$("status").textContent="در حال اتصال به صرافی…";const r=await fetchLive();clearTimeout(liveTimer);
+  if(r){DS=r.ds;source=r.name+" · زنده";isLive=true;$("modeBox").style.display="none";render();liveTimer=setTimeout(goLive,30000);return;}
+  isLive=false;$("modeBox").style.display="block";
+  $("modeBox").innerHTML="📵 این صفحه اجازه اتصال مستقیم به صرافی را ندارد، پس الان <b>داده نمونه</b> نشان داده می‌شود. برای سیگنال واقعی، از بخش «بارگذاری داده واقعی» پایین صفحه داده را بچسبان، یا فایل HTML را روی لپ‌تاپ با Chrome باز کن تا زنده کار کند.";
+  if(!Object.keys(DS).length)demo();else render();}
+function demo(){let p=95000,t=Date.now()-Date.now()%300000-1199*300000;const o=[];
+  for(let i=0;i<1200;i++){const op=p,dr=Math.sin(i/70)*22+Math.sin(i/23)*9,c=op+dr+(Math.random()-.5)*170;
+    o.push({t,o:op,h:Math.max(op,c)+Math.random()*80,l:Math.min(op,c)-Math.random()*80,c,v:5+Math.random()*20*(1+Math.abs(c-op)/90)});p=c;t+=300000;}
+  DS=buildFrom(o).ds;source="داده نمونه (ساختگی)";isLive=false;render();}
+$("btnDemo").onclick=()=>{clearTimeout(liveTimer);demo();};
+$("btnLive").onclick=goLive;
+$("btnAnalyze").onclick=()=>{try{const d=parseText($("paste").value),{ds,g}=buildFrom(d);
+    if(!Object.values(ds).some(a=>a.length>=60))throw new Error(`فقط ${fa(d.length)} کندل؛ داده بیشتری لازم است`);
+    clearTimeout(liveTimer);isLive=false;DS=ds;source=`داده واردشده (${fa(g)} دقیقه‌ای)`;$("modeBox").style.display="none";
+    if(!ds[tf]||ds[tf].length<60)tf=[15,10,5,60].find(t=>ds[t]&&ds[t].length>=60);
+    render();const age=(Date.now()-d[d.length-1].t)/6e4;
+    $("pasteMsg").textContent="✓ تحلیل شد."+(age>30?` (توجه: آخرین کندل ${fa(Math.round(age))} دقیقه پیش است؛ برای سیگنال تازه دوباره کپی کن.)`:"");
+    window.scrollTo({top:0,behavior:"smooth"});}catch(e){$("pasteMsg").textContent="خطا: "+e.message;}};
+goLive();
+if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{});}
+</script>
+</body>
+</html>
