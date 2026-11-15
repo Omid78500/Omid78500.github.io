@@ -2,7 +2,7 @@ name: BTC paper bot
 
 on:
   schedule:
-    - cron: "*/5 * * * *"
+    - cron: "*/5 * * * *"   # every 5 min (GitHub may delay)
   workflow_dispatch:
 
 permissions:
