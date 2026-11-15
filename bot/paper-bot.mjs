@@ -100,6 +100,7 @@ function scoreAt(X,i){const r=[];let s=0;const add=(p,t)=>{s+=p;r.push({p,t});},
   if(X.vAvg[i]&&X.cs[i].v>1.8*X.vAvg[i])r.push({p:0,t:`حجم کندل ${(X.cs[i].v/X.vAvg[i]).toFixed(1)} برابر میانگین`});
   return{s:fs,raw:s,r};}
 
+const whyOf=sc=>sc?sc.r.filter(r=>r.p!==0||/ADX/.test(r.t)).map(r=>({p:r.p,t:r.t})):[];
 const sigOf=s=>s==null?0:s>=TH?1:s<=-TH?-1:0;
 async function getJ(u,opt={}){const r=await fetch(u,opt);const t=await r.text();if(!r.ok){const e=new Error(`${r.status} ${t.slice(0,200)}`);e.status=r.status;throw e;}return t?JSON.parse(t):null;}
 const alp=(p,opt={})=>getJ(ALP+p,{...opt,headers:{"APCA-API-KEY-ID":KEY,"APCA-API-SECRET-KEY":SEC,"Content-Type":"application/json",...(opt.headers||{})}});
@@ -130,15 +131,18 @@ async function main(){
   const exposure=pos?Math.abs(+pos.market_value):0;
   st.position=pos?{qty:+pos.qty,avg:+pos.avg_entry_price,value:+pos.market_value,upl:+pos.unrealized_pl}:null;
   if(st.pos&&!pos){note("پوزیشن بیرون از ربات بسته شده بود؛ وضعیت پاک شد.");st.pos=null;}
-  async function close(reason){
+  async function close(reason,sellWhy){
     const qty=+pos.qty;await alp("/positions/BTCUSD",{method:"DELETE"});await sleep(2500);
     let exit=px;try{const os=await alp("/orders?status=closed&limit=5&direction=desc&symbols=BTC/USD");const o=os.find(o=>o.side==="sell"&&o.filled_avg_price);if(o)exit=+o.filled_avg_price;}catch(e){}
     const entry=st.pos?st.pos.entry:+pos.avg_entry_price,pnl=(exit-entry)*qty;
-    trades.unshift({openAt:st.pos?st.pos.at:null,closeAt:Date.now(),entry,exit,qty,pnl:+pnl.toFixed(2),pnlPct:+((exit/entry-1)*100).toFixed(3),reason});
+    trades.unshift({openAt:st.pos?st.pos.at:null,closeAt:Date.now(),entry,exit,qty,pnl:+pnl.toFixed(2),pnlPct:+((exit/entry-1)*100).toFixed(3),reason,
+      buyScore:st.pos?st.pos.score:null,buyWhy:st.pos?st.pos.why||[]:[],sellScore:sc?+sc.s.toFixed(2):null,sellWhy:sellWhy||[]});
     note(`فروش ${qty} BTC در ${exit.toFixed(2)} — ${reason} — سود/زیان ${pnl.toFixed(2)}$`);st.pos=null;pos=null;}
   if(pos){ // manage exits
     const sp=st.pos||{stop:+pos.avg_entry_price-cfg.slAtr*X.atr[k],tp:+pos.avg_entry_price+cfg.slAtr*X.atr[k]*cfg.rr,entry:+pos.avg_entry_price,at:null};st.pos=sp;
-    if(px<=sp.stop)await close("حد ضرر");else if(px>=sp.tp)await close("حد سود");else if(sg===-1&&cs[k].t!==st.lastBar)await close("سیگنال فروش");
+    if(px<=sp.stop)await close("حد ضرر",[{p:-1,t:`قیمت ${px.toFixed(0)} به حد ضرر ${(+sp.stop).toFixed(0)} رسید؛ ربات برای جلوگیری از ضرر بیشتر فروخت`}]);
+    else if(px>=sp.tp)await close("حد سود",[{p:1,t:`قیمت ${px.toFixed(0)} به حد سود ${(+sp.tp).toFixed(0)} رسید؛ ربات سود را برداشت`}]);
+    else if(sg===-1&&cs[k].t!==st.lastBar)await close("سیگنال فروش",whyOf(sc));
   }
   if(!pos&&cfg.enabled&&sg===1&&prev!==1&&cs[k].t!==st.lastBar){
     const room=cfg.cap-(pos?exposure:0),notional=Math.min(cfg.perTrade,room,+acct.cash);
@@ -146,7 +150,7 @@ async function main(){
     else{const o=await alp("/orders",{method:"POST",body:JSON.stringify({symbol:"BTC/USD",notional:notional.toFixed(2),side:"buy",type:"market",time_in_force:"gtc"})});
       await sleep(2500);let f=o;try{f=await alp("/orders/"+o.id);}catch(e){}
       const entry=+f.filled_avg_price||px,a=X.atr[k];
-      st.pos={entry,at:Date.now(),stop:+(entry-cfg.slAtr*a).toFixed(2),tp:+(entry+cfg.slAtr*a*cfg.rr).toFixed(2),orderId:o.id,notional};
+      st.pos={entry,at:Date.now(),stop:+(entry-cfg.slAtr*a).toFixed(2),tp:+(entry+cfg.slAtr*a*cfg.rr).toFixed(2),orderId:o.id,notional,score:+sc.s.toFixed(2),why:whyOf(sc)};
       note(`خرید ${notional.toFixed(2)}$ BTC در ${entry.toFixed(2)} — حد ضرر ${st.pos.stop} — حد سود ${st.pos.tp}`);}}
   st.lastBar=cs[k].t;st.lastSignal=sg;
   if(cfg.enabled){st.status="running";st.message="ربات فعال است.";}

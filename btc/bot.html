@@ -54,8 +54,7 @@ ul.lg{padding:0 18px 0 0;margin:0}ul.lg li{font-size:13px;margin:3px 0}
 <div class="card"><h3>📍 پوزیشن باز</h3><div class="grid" id="pos"></div></div>
 <div class="card"><h3>📊 کارنامه ربات</h3><div class="grid" id="perf"></div></div>
 <div class="card"><h3>📶 آخرین سیگنال</h3><div id="sig" class="small"></div></div>
-<div class="card"><h3>📝 معاملات</h3>
-  <table><thead><tr><th>بسته شد</th><th>ورود</th><th>خروج</th><th>سود/زیان</th><th>دلیل</th></tr></thead><tbody id="tr"></tbody></table></div>
+<div class="card"><h3>📝 معاملات — کجا خرید، کجا فروخت و چرا</h3><div class="small" style="margin-bottom:6px">روی هر معامله بزن تا دلیل‌های خرید و فروش را ببینی. سبز = به نفع خرید، قرمز = به نفع فروش.</div><div id="tr"></div></div>
 <div class="card"><h3>🗒 گزارش ربات</h3><ul class="lg" id="log"></ul></div>
 <div class="card small">
   <b>تنظیمات فعلی:</b> <span id="cfg"></span><br>
@@ -87,14 +86,16 @@ async function load(){let st={},tr=[],cfg={};
   const p=st.pos,P=st.position;
   if(P&&P.qty){const cur=px||P.avg,upl=(cur-(p?p.entry:P.avg))*P.qty;
     $("pos").innerHTML=box([["مقدار",fmt(P.qty,6)+" BTC"],["قیمت ورود","$"+fmt(p?p.entry:P.avg)],["قیمت الان","$"+fmt(cur)],["سود/زیان باز",(upl>=0?"+$":"−$")+fmt(Math.abs(upl)),upl>=0?"pos":"neg"],
-      ["حد ضرر","$"+fmt(p&&p.stop)],["حد سود","$"+fmt(p&&p.tp)],["باز شده",p&&p.at?tm(p.at):"—"]]);}
+      ["حد ضرر","$"+fmt(p&&p.stop)],["حد سود","$"+fmt(p&&p.tp)],["باز شده",p&&p.at?tm(p.at):"—"]])+(p&&p.why&&p.why.length?`<div style="grid-column:1/-1"><b>چرا خرید؟</b> <span class="small">(امتیاز ${fmt(p.score,1)})</span><ul class="lg" style="margin-top:4px">${p.why.map(r=>`<li class="${r.p>0?"pos":r.p<0?"neg":"neu"}">${r.t}</li>`).join("")}</ul></div>`:"");}
   else $("pos").innerHTML='<div class="small">پوزیشن بازی نیست. ربات منتظر سیگنال خرید تازه است.</div>';
   const n=tr.length,w=tr.filter(x=>x.pnl>0).length,tot=tr.reduce((s,x)=>s+x.pnl,0),best=n?Math.max(...tr.map(x=>x.pnl)):0,worst=n?Math.min(...tr.map(x=>x.pnl)):0;
   $("perf").innerHTML=box([["تعداد معامله",fa(n)],["برد",n?fa(w)+" از "+fa(n)+" ("+fa(Math.round(w/n*100))+"٪)":"—"],["سود/زیان کل",n?(tot>=0?"+$":"−$")+fmt(Math.abs(tot)):"—",tot>=0?"pos":"neg"],
     ["بهترین","$"+fmt(best)],["بدترین","$"+fmt(worst)]]);
   const sg=st.signal;
   $("sig").innerHTML=sg?`<b class="${sg.sig===1?"pos":sg.sig===-1?"neg":"neu"}">${sg.sig===1?"بخر":sg.sig===-1?"بفروش":"صبر کن"}</b> · امتیاز ${fmt(sg.score,1)} · کندل ${tm(sg.bar)}<ul class="lg" style="margin-top:6px">${(sg.reasons||[]).map(r=>`<li class="${r.p>0?"pos":r.p<0?"neg":"neu"}">${r.t}</li>`).join("")}</ul>`:"—";
-  $("tr").innerHTML=tr.slice(0,50).map(x=>`<tr><td>${tm(x.closeAt)}</td><td style="direction:ltr">${fmt(x.entry,0)}</td><td style="direction:ltr">${fmt(x.exit,0)}</td><td class="${x.pnl>=0?"pos":"neg"}" style="direction:ltr">${x.pnl>=0?"+":""}${fmt(x.pnl)}</td><td>${x.reason}</td></tr>`).join("")||'<tr><td colspan="5" class="neu">هنوز معامله‌ای بسته نشده</td></tr>';
+  const W=a=>(a&&a.length)?`<ul class="lg" style="margin:4px 0 8px">${a.map(r=>`<li class="${r.p>0?"pos":r.p<0?"neg":"neu"}">${r.t}</li>`).join("")}</ul>`:'<div class="small neu" style="margin:4px 0 8px">برای این معامله ثبت نشده</div>';
+  $("tr").innerHTML=tr.slice(0,50).map(x=>`<details style="border:1px solid #2a323c;border-radius:10px;padding:8px 10px;margin:6px 0"><summary style="cursor:pointer;list-style:none"><b class="${x.pnl>=0?"pos":"neg"}" style="direction:ltr;display:inline-block">${x.pnl>=0?"+":"−"}$${fmt(Math.abs(x.pnl))}</b> · ${x.reason}<div class="small">🟢 خرید ${x.openAt?tm(x.openAt):""} در <span style="direction:ltr;display:inline-block">$${fmt(x.entry,0)}</span> ← 🔴 فروش ${tm(x.closeAt)} در <span style="direction:ltr;display:inline-block">$${fmt(x.exit,0)}</span></div></summary>
+    <div style="margin-top:8px"><b>چرا خرید؟</b>${x.buyScore!=null?` <span class="small">(امتیاز ${fmt(x.buyScore,1)})</span>`:""}${W(x.buyWhy)}<b>چرا فروخت؟</b> <span class="small">${x.reason}</span>${W(x.sellWhy)}</div></details>`).join("")||'<div class="small neu">هنوز معامله‌ای بسته نشده</div>';
   $("log").innerHTML=(st.log||[]).map(l=>`<li>${tm(l.t)} — ${l.m}</li>`).join("")||'<li class="neu">خالی</li>';
   $("cfg").textContent=cfg.cap?`سقف $${cfg.cap} · هر معامله تا $${cfg.perTrade} · تایم‌فریم ${cfg.tf} دقیقه · حساسیت ${cfg.sensitivity} · حد ضرر ${cfg.slAtr}×ATR · سود به ضرر 1:${cfg.rr} · ${cfg.enabled?"روشن":"خاموش"}`:"—";
 }
