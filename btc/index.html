@@ -101,7 +101,7 @@ a{color:var(--blue);word-break:break-all;font-size:12px}
     <div style="flex:1;min-width:120px"><label>فاصله حد ضرر (× ATR)</label>
       <select id="slm"><option value="1">1.0</option><option value="1.5" selected>1.5</option><option value="2">2.0</option></select></div>
     <div style="flex:1;min-width:120px"><label>حساسیت سیگنال</label>
-      <select id="th" style="direction:rtl"><option value="6">محافظه‌کار (سیگنال کمتر)</option><option value="5" selected>معمولی</option><option value="3.5">تهاجمی (سیگنال بیشتر)</option></select></div>
+      <select id="th" style="direction:rtl"><option value="6">محافظه‌کار (سیگنال کمتر)</option><option value="5" selected>معمولی</option><option value="3.5">تهاجمی (سیگنال بیشتر)</option><option value="1">همیشه جهت بده (ضعیف‌ترین)</option></select></div>
   </div>
 </div>
 
@@ -328,7 +328,7 @@ function render(){
   $("price").textContent="$"+fmt(last.c);$("chg").innerHTML=`<span class="${ch>=0?"pos":"neg"}">${ch>=0?"+":""}${fmt(ch)}% · 1h</span>`;
   $("status").textContent=`منبع: ${source} · آخرین کندل ${hm(last.t)} · ${fa(cs.length)} کندل ${TFL[tf]}`;
   const S=SIG[sg],conf=Math.min(100,50+(Math.abs(sc.s)-TH)/(MAXS-TH)*50);
-  $("sigBox").className="sig "+S.cls;$("sigFa").textContent=S.fa;$("sigEn").textContent=S.en+" · "+TFL[tf];
+  $("sigBox").className="sig "+S.cls;$("sigFa").textContent=S.fa;$("sigEn").textContent=S.en+" · "+TFL[tf]+(sg?"":" · تمایل: "+(sc.s>0?"خرید ▲":sc.s<0?"فروش ▼":"هیچ‌کدام"));
   $("confBar").style.width=(sg?conf:Math.abs(sc.s)/TH*40)+"%";$("confBar").style.background=sg===1?"var(--up)":sg===-1?"var(--dn)":"#6b7280";
   $("sigMeta").textContent=`امتیاز ${fmt(sc.s,1)} از ±${fa(MAXS)} · ${sg?"قدرت "+fa(Math.round(conf))+"٪":"تمایل به "+(sc.s>=0?"خرید":"فروش")+"، "+fmt(Math.max(0,TH-Math.abs(sc.s)),1)+" امتیاز تا سیگنال"} · ${since?fa(since)+" کندل است که این سیگنال برقرار است":"سیگنال تازه"}`+(k<cs.length-1?" · بر اساس آخرین کندل بسته‌شده":"");
   // plan
