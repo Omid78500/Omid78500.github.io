@@ -110,7 +110,7 @@ a{color:var(--blue);word-break:break-all;font-size:12px}
 
 <div class="card">
   <h3>🧭 هم‌راستایی تایم‌فریم‌ها</h3>
-  <table><thead><tr><th>تایم‌فریم</th><th>سیگنال</th><th>امتیاز</th><th>روند</th><th>RSI</th></tr></thead><tbody id="mtf"></tbody></table>
+  <table><thead><tr><th>تایم‌فریم</th><th>سیگنال</th><th>امتیاز</th><th>روند</th><th>RSI</th><th>برد گذشته</th></tr></thead><tbody id="mtf"></tbody></table>
   <div class="small" id="mtfNote" style="margin-top:6px"></div>
 </div>
 
@@ -173,7 +173,7 @@ a{color:var(--blue);word-break:break-all;font-size:12px}
 <script>
 "use strict";
 const $=id=>document.getElementById(id);
-const TFS=[5,10,15,60], TFL={5:"۵ دقیقه",10:"۱۰ دقیقه",15:"۱۵ دقیقه",60:"۱ ساعت"}, HTF={5:15,10:60,15:60,60:null};
+const TFS=[5,10,15,60,300,600,1440], TFL={5:"۵ دقیقه",10:"۱۰ دقیقه",15:"۱۵ دقیقه",60:"۱ ساعت",300:"۵ ساعت",600:"۱۰ ساعت",1440:"۱ روز",10080:"هفتگی"}, HTF={5:15,10:60,15:60,60:300,300:1440,600:1440,1440:10080};
 let TH=5;const MAXS=14;
 let DS={}, tf=15, source="", isLive=false, liveTimer=null, alertOn=false, useClosed=true, audioCtx=null, lastSig={}, nVis=90, hoverI=null, VIEW=null;
 const store={get(k,d){try{const v=localStorage.getItem("btcsig_"+k);return v==null?d:JSON.parse(v);}catch(e){return d;}},set(k,v){try{localStorage.setItem("btcsig_"+k,JSON.stringify(v));}catch(e){}}};
@@ -244,10 +244,11 @@ async function coinbase(gran,pages){let all=[],end=Date.now();
     all=all.concat(await getJSON(u));end=start;}return normalize(all);}
 async function binance(host,iv){return getJSON(`https://${host}/api/v3/klines?symbol=BTCUSDT&interval=${iv}&limit=1000`);}
 async function fetchLive(){
-  try{const[a,b,c]=await Promise.all([coinbase(300,2),coinbase(900,1),coinbase(3600,1)]);
-    if(a.length>100)return{ds:{5:a,10:agg(a,5,10),15:b.length>60?b:agg(a,5,15),60:c},name:"Coinbase"};}catch(e){}
-  for(const h of["api.binance.us","api.binance.com"]){try{const[a,b,c]=await Promise.all([binance(h,"5m"),binance(h,"15m"),binance(h,"1h")]);
-    if(a.length>100)return{ds:{5:a,10:agg(a,5,10),15:b,60:c},name:h.includes(".us")?"Binance.US":"Binance"};}catch(e){}}
+  const hi=(c,d)=>({60:c,300:agg(c,60,300),600:agg(c,60,600),1440:d,10080:agg(d,1440,10080)});
+  try{const[a,b,c,d]=await Promise.all([coinbase(300,2),coinbase(900,1),coinbase(3600,6),coinbase(86400,1)]);
+    if(a.length>100)return{ds:{5:a,10:agg(a,5,10),15:b.length>60?b:agg(a,5,15),...hi(c,d)},name:"Coinbase"};}catch(e){}
+  for(const h of["api.binance.us","api.binance.com"]){try{const[a,b,c,d]=await Promise.all([binance(h,"5m"),binance(h,"15m"),binance(h,"1h"),binance(h,"1d")]);
+    if(a.length>100)return{ds:{5:a,10:agg(a,5,10),15:b,...hi(c,d)},name:h.includes(".us")?"Binance.US":"Binance"};}catch(e){}}
   return null;}
 
 /* ===== analysis ===== */
@@ -283,7 +284,7 @@ function scoreAt(X,i){const r=[];let s=0;const add=(p,t)=>{s+=p;r.push({p,t});},
   let sc=0;for(let k=i-1;k<=i;k++){const k0=X.sk[k-1],d0=X.sd[k-1],k1=X.sk[k],d1=X.sd[k];
     if([k0,d0,k1,d1].every(v=>v!=null)){if(k0<=d0&&k1>d1&&k1<35)sc=1;if(k0>=d0&&k1<d1&&k1>65)sc=-1;}}
   if(sc)add(sc,sc===1?"Stoch RSI از ناحیه اشباع فروش رو به بالا کراس کرد":"Stoch RSI از ناحیه اشباع خرید رو به پایین کراس کرد");
-  add(c>X.vw[i]?1:-1,`قیمت ${c>X.vw[i]?"بالای":"زیر"} VWAP روزانه`);
+  if(X.tfm<300)add(c>X.vw[i]?1:-1,`قیمت ${c>X.vw[i]?"بالای":"زیر"} VWAP روزانه`);
   if(X.obvE[i]!=null)add(X.obv[i]>X.obvE[i]?1:-1,X.obv[i]>X.obvE[i]?"OBV بالای میانگین — ورود پول":"OBV زیر میانگین — خروج پول");
   const pt=pattern(X.cs,i,X);if(pt)add(pt.p,pt.t);
   let fs=s;const ad=X.adx[i];
@@ -327,7 +328,7 @@ function render(){
   if(!(DS[tf]&&DS[tf].length>=60)){const alt=[15,10,5,60].find(t=>DS[t]&&DS[t].length>=60);if(alt==null){$("status").textContent="داده کافی نیست";return;}tf=alt;}
   renderTabs();
   const A=analyzeTF(tf);if(!A)return;const{X,k,sc,sg,since}=A,cs=DS[tf],last=cs[cs.length-1],rr=+$("rr").value,slm=+$("slm").value;
-  const p1=cs[Math.max(0,cs.length-1-Math.round(60/tf))].c,ch=(last.c-p1)/p1*100;
+  const bt0=[5,10,15,60].find(t=>DS[t]&&DS[t].length>12),bs=bt0?DS[bt0]:cs,p1=bs[Math.max(0,bs.length-1-Math.round(60/(bt0||tf)))].c,ch=(bs[bs.length-1].c-p1)/p1*100;
   $("price").textContent="$"+fmt(last.c);$("chg").innerHTML=`<span class="${ch>=0?"pos":"neg"}">${ch>=0?"+":""}${fmt(ch)}% · 1h</span>`;
   $("status").textContent=`منبع: ${source} · آخرین کندل ${hm(last.t)} · ${fa(cs.length)} کندل ${TFL[tf]}`;
   const S=SIG[sg],conf=Math.min(100,50+(Math.abs(sc.s)-TH)/(MAXS-TH)*50);
@@ -344,7 +345,7 @@ function render(){
   // MTF
   const rows=TFS.filter(t=>DS[t]&&DS[t].length>=60).map(t=>{const B=t===tf?A:analyzeTF(t);if(!B)return"";const s2=SIG[B.sg],x=B.X,kk=B.k;
     const tr=x.e21[kk]>x.e50[kk]?'<span class="pos">صعودی</span>':'<span class="neg">نزولی</span>';
-    return{t,sg:B.sg,html:`<tr class="click" data-t="${t}" style="${t===tf?"background:#1b232c":""}"><td>${TFL[t]}</td><td><span class="pill ${s2.pill}">${s2.fa}</span></td><td style="direction:ltr;text-align:right">${fmt(B.sc.s,1)}</td><td>${tr}</td><td>${fmt(x.R[kk],0)}</td></tr>`};}).filter(Boolean);
+    return{t,sg:B.sg,html:`<tr class="click" data-t="${t}" style="${t===tf?"background:#1b232c":""}"><td>${TFL[t]}</td><td><span class="pill ${s2.pill}">${s2.fa}</span></td><td style="direction:ltr;text-align:right">${fmt(B.sc.s,1)}</td><td>${tr}</td><td>${fmt(x.R[kk],0)}</td><td>${(()=>{const b=backtest(x,kk,+$("rr").value,+$("slm").value);return b.n>=3?`<span class="${b.netR>=0?"pos":"neg"}">${fa(Math.round(b.wr))}٪</span> <span class="small">(${fa(b.n)})</span>`:"<span class=\"neu\">کم</span>";})()}</td></tr>`};}).filter(Boolean);
   $("mtf").innerHTML=rows.map(r=>r.html).join("");
   document.querySelectorAll("#mtf tr.click").forEach(el=>el.onclick=()=>{tf=+el.dataset.t;store.set("tf",tf);render();});
   const ups=rows.filter(r=>r.sg===1).length,dns=rows.filter(r=>r.sg===-1).length;
@@ -422,8 +423,8 @@ $("th").addEventListener("input",()=>{TH=+$("th").value;store.set("th",$("th").v
 ["rr","slm","bal","risk","lev"].forEach(id=>$(id).addEventListener("input",()=>{store.set(id,$(id).value);render();}));
 
 /* ===== countdown ===== */
-setInterval(()=>{const ms=tf*6e4,left=ms-Date.now()%ms,m=Math.floor(left/6e4),s=Math.floor(left%6e4/1000);
-  $("countdown").textContent=isLive?`⏱ بسته شدن کندل ${TFL[tf]} بعدی: ${fa(m)}:${s.toString().padStart(2,"0").replace(/\d/g,d=>"۰۱۲۳۴۵۶۷۸۹"[d])}`:"";},1000);
+setInterval(()=>{const ms=tf*6e4,left=ms-Date.now()%ms,hh=Math.floor(left/36e5),m=Math.floor(left%36e5/6e4)+(hh?0:0),s=Math.floor(left%6e4/1000);
+  $("countdown").textContent=isLive?`⏱ بسته شدن کندل ${TFL[tf]} بعدی: ${hh?fa(hh)+" ساعت و "+fa(m)+" دقیقه":fa(m)+":"+s.toString().padStart(2,"0").replace(/\d/g,d=>"۰۱۲۳۴۵۶۷۸۹"[d])}`:"";},1000);
 
 /* ===== modes ===== */
 async function goLive(){$("status").textContent="در حال اتصال به صرافی…";const r=await fetchLive();clearTimeout(liveTimer);
