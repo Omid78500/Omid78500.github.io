@@ -31,7 +31,7 @@ html,body{margin:0;background:var(--bg);color:var(--txt);font-family:Vazirmatn,T
 <body>
 <div class="bar">
   <div class="seg" id="mode"><button data-m="tv" class="on">TradingView کامل</button><button data-m="sig">چارت سیگنال</button></div>
-  <div class="seg" id="coin"><button data-c="BTC" class="on">BTC</button><button data-c="ETH">ETH</button><button data-c="SOL">SOL</button><button data-c="XRP">XRP</button></div>
+  <div class="seg" id="coin"><button data-c="BTC" class="on">BTC</button><button data-c="ETH">ETH</button><button data-c="SOL">SOL</button><button data-c="XRP">XRP</button><button data-c="GOLD">🥇 طلا</button></div>
   <div class="seg" id="tfs"><button data-t="5">5m</button><button data-t="10">10m</button><button data-t="15" class="on">15m</button><button data-t="60">1h</button></div>
   <a href="./">← سیگنال‌یاب</a>
 </div>
@@ -55,7 +55,8 @@ const store={get(k,d){try{const v=localStorage.getItem("chart_"+k);return v==nul
 let mode=store.get("mode","tv"),coin=store.get("coin","BTC"),tf=store.get("tf",15);
 const TFL={5:"5m",10:"10m",15:"15m",60:"1h"};
 let TH=5;try{const v=localStorage.getItem("btcsig_th");if(v)TH=+JSON.parse(v)||5;}catch(e){}
-const DP={BTC:2,ETH:2,SOL:3,XRP:4};
+const DP={BTC:2,ETH:2,SOL:3,XRP:4,GOLD:2};
+const TVSYM={GOLD:"OANDA:XAUUSD"};const CBP={GOLD:"PAXG"};
 /* ===== shared signal engine (same as the BTC Signal app) ===== */
 /* ===== indicators ===== */
 function ema(src,p){const o=Array(src.length).fill(null),k=2/(p+1);let s=0,c=0;
@@ -170,13 +171,13 @@ document.querySelectorAll("#tfs button").forEach(b=>b.onclick=()=>{tf=+b.dataset
 let tvKey="";
 function loadTV(){const key=coin+tf;if(key===tvKey)return;tvKey=key;$("tv").innerHTML="";
   if(!window.TradingView){$("tv").innerHTML='<div class="small">TradingView بارگذاری نشد؛ اینترنت را چک کن.</div>';return;}
-  new TradingView.widget({container_id:"tv",autosize:true,symbol:"COINBASE:"+coin+"USD",interval:String(tf),timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,
+  new TradingView.widget({container_id:"tv",autosize:true,symbol:TVSYM[coin]||("COINBASE:"+coin+"USD"),interval:String(tf),timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,
     theme:"dark",style:"1",locale:"en",toolbar_bg:"#0b0f14",enable_publishing:false,allow_symbol_change:true,hide_side_toolbar:false,withdateranges:true,
     details:true,hotlist:true,save_image:true,studies:["MAExp@tv-basicstudies","BB@tv-basicstudies","RSI@tv-basicstudies","MACD@tv-basicstudies","Volume@tv-basicstudies"]});}
 
 /* ===== signal chart (lightweight-charts) ===== */
 let ch=null,rc=null,S={},lines=[],sigKey="",timer=null,lastData=null;
-const cb=c=>c+"-USD";
+const cb=c=>(CBP[c]||c)+"-USD";
 async function candles(product,gran,pages){let all=[],end=Date.now();
   for(let p=0;p<pages;p++){const st=end-300*gran*1000;const r=await fetch(`https://api.exchange.coinbase.com/products/${product}/candles?granularity=${gran}&start=${new Date(st).toISOString()}&end=${new Date(end).toISOString()}`);
     all=all.concat(parseText(await r.text()));end=st;}return normalize(all);}
