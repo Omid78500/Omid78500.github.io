@@ -32,7 +32,7 @@ html,body{margin:0;background:var(--bg);color:var(--txt);font-family:Vazirmatn,T
 <div class="bar">
   <div class="seg" id="mode"><button data-m="tv" class="on">TradingView کامل</button><button data-m="sig">چارت سیگنال</button></div>
   <div class="seg" id="coin"><button data-c="BTC" class="on">BTC</button><button data-c="ETH">ETH</button><button data-c="SOL">SOL</button><button data-c="XRP">XRP</button><button data-c="GOLD">🥇 طلا</button></div>
-  <div class="seg" id="tfs"><button data-t="5">5m</button><button data-t="10">10m</button><button data-t="15" class="on">15m</button><button data-t="60">1h</button></div>
+  <div class="seg" id="tfs"><button data-t="5">5m</button><button data-t="10">10m</button><button data-t="15" class="on">15m</button><button data-t="60">1h</button><button data-t="1440">1D</button><button data-t="10080">1W</button><button data-t="43200">1M</button></div>
   <a href="./">← سیگنال‌یاب</a>
 </div>
 
@@ -53,7 +53,8 @@ html,body{margin:0;background:var(--bg);color:var(--txt);font-family:Vazirmatn,T
 const $=id=>document.getElementById(id);
 const store={get(k,d){try{const v=localStorage.getItem("chart_"+k);return v==null?d:JSON.parse(v);}catch(e){return d;}},set(k,v){try{localStorage.setItem("chart_"+k,JSON.stringify(v));}catch(e){}}};
 let mode=store.get("mode","tv"),coin=store.get("coin","BTC"),tf=store.get("tf",15);
-const TFL={5:"5m",10:"10m",15:"15m",60:"1h"};
+const TFL={5:"5m",10:"10m",15:"15m",60:"1h",1440:"1D",10080:"1W",43200:"1M"};
+const TVI={1440:"D",10080:"W",43200:"M"};
 let TH=5;try{const v=localStorage.getItem("btcsig_th");if(v)TH=+JSON.parse(v)||5;}catch(e){}
 const DP={BTC:2,ETH:2,SOL:3,XRP:4,GOLD:2};
 const TVSYM={GOLD:"OANDA:XAUUSD"};const CBP={GOLD:"PAXG"};
@@ -171,7 +172,7 @@ document.querySelectorAll("#tfs button").forEach(b=>b.onclick=()=>{tf=+b.dataset
 let tvKey="";
 function loadTV(){const key=coin+tf;if(key===tvKey)return;tvKey=key;$("tv").innerHTML="";
   if(!window.TradingView){$("tv").innerHTML='<div class="small">TradingView بارگذاری نشد؛ اینترنت را چک کن.</div>';return;}
-  new TradingView.widget({container_id:"tv",autosize:true,symbol:TVSYM[coin]||("COINBASE:"+coin+"USD"),interval:String(tf),timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,
+  new TradingView.widget({container_id:"tv",autosize:true,symbol:TVSYM[coin]||("COINBASE:"+coin+"USD"),interval:TVI[tf]||String(tf),timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,
     theme:"dark",style:"1",locale:"en",toolbar_bg:"#0b0f14",enable_publishing:false,allow_symbol_change:true,hide_side_toolbar:false,withdateranges:true,
     details:true,hotlist:true,save_image:true,studies:["MAExp@tv-basicstudies","BB@tv-basicstudies","RSI@tv-basicstudies","MACD@tv-basicstudies","Volume@tv-basicstudies"]});}
 
@@ -180,7 +181,20 @@ let ch=null,rc=null,S={},lines=[],sigKey="",timer=null,lastData=null;
 const cb=c=>(CBP[c]||c)+"-USD";
 async function candles(product,gran,pages){let all=[],end=Date.now();
   for(let p=0;p<pages;p++){const st=end-300*gran*1000;const r=await fetch(`https://api.exchange.coinbase.com/products/${product}/candles?granularity=${gran}&start=${new Date(st).toISOString()}&end=${new Date(end).toISOString()}`);
-    all=all.concat(parseText(await r.text()));end=st;}return normalize(all);}
+    let rows;try{rows=parseText(await r.text());}catch(e){if(p===0)throw e;break;}if(!rows.length)break;
+    all=all.concat(rows);end=st;}return normalize(all);}
+const wkKey=t=>{const d=new Date(t),dw=(d.getUTCDay()+6)%7;return Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()-dw);};
+const moKey=t=>{const d=new Date(t);return Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),1);};
+function aggBy(cs,key){const out=[];let cur=null;
+  for(const c of cs){const b=key(c.t);if(!cur||cur.t!==b){if(cur)out.push(cur);cur={t:b,o:c.o,h:c.h,l:c.l,c:c.c,v:c.v};}
+    else{cur.h=Math.max(cur.h,c.h);cur.l=Math.min(cur.l,c.l);cur.c=c.c;cur.v+=c.v;}}
+  if(cur)out.push(cur);return out;}
+async function series(P,t){
+  if(t===1440)return candles(P,86400,2);
+  if(t===10080)return aggBy(await candles(P,86400,5),wkKey);
+  if(t===43200)return aggBy(await candles(P,86400,14),moKey);
+  return t===10?agg(await candles(P,300,2),5,10):candles(P,t===5?300:t===15?900:3600,t===60?1:2);}
+const HTF={5:15,10:60,15:60,60:1440,1440:10080,10080:43200,43200:0};
 function mkCharts(){if(ch)return;const LW=LightweightCharts,opt={layout:{background:{color:"#0b0f14"},textColor:"#8b949e",fontFamily:"Vazirmatn, sans-serif"},
     grid:{vertLines:{color:"#161c23"},horzLines:{color:"#161c23"}},rightPriceScale:{borderColor:"#2a323c"},timeScale:{borderColor:"#2a323c",timeVisible:true,secondsVisible:false},
     crosshair:{mode:LW.CrosshairMode.Normal},localization:{timeFormatter:t=>new Date(t*1000).toLocaleString("en-GB",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})}};
@@ -200,11 +214,13 @@ function mkCharts(){if(ch)return;const LW=LightweightCharts,opt={layout:{backgro
 function ts(t){return Math.floor(t/1000);}
 async function loadSig(){mkCharts();const key=coin+tf;const fresh=key!==sigKey;sigKey=key;clearInterval(timer);
   try{$("info").textContent="در حال بارگذاری…";const P=cb(coin);
-    let cs=tf===10?agg(await candles(P,300,2),5,10):await candles(P,tf===5?300:tf===15?900:3600,tf===60?1:2);
-    const htf=tf===5?await candles(P,900,1):await candles(P,3600,1),htfm=tf===5?15:60;
+    const htfm=HTF[tf];let cs,htf=null;
+    if(tf>=1440){const d=await candles(P,86400,tf===1440?5:14);cs=tf===1440?d.slice(-600):tf===10080?aggBy(d,wkKey):aggBy(d,moKey);
+      htf=htfm===10080?aggBy(d,wkKey):htfm===43200?aggBy(d,moKey):null;}
+    else{cs=await series(P,tf);htf=htfm===15?await candles(P,900,1):htfm===1440?await candles(P,86400,1):await candles(P,3600,1);}
     draw(cs,htf,htfm,fresh);timer=setInterval(()=>live(P),3000);}
   catch(e){$("info").textContent="داده بارگذاری نشد: "+e.message;}}
-function draw(cs,htf,htfm,fit){const X=ctx(cs,htf,tf,htfm),n=cs.length-1,k=cs[n].t+tf*6e4>Date.now()+5000?n-1:n;
+function draw(cs,htf,htfm,fit){const X=ctx(cs,htf,tf,htfm),n=cs.length-1,k=(tf===10080?cs[n].t+7*864e5:tf===43200?Date.UTC(new Date(cs[n].t).getUTCFullYear(),new Date(cs[n].t).getUTCMonth()+1,1):cs[n].t+tf*6e4)>Date.now()+5000?n-1:n;
   const line=a=>cs.map((c,i)=>a[i]==null?null:{time:ts(c.t),value:a[i]}).filter(Boolean);
   const pf={type:"price",precision:DP[coin],minMove:1/Math.pow(10,DP[coin])};
   [S.c,S.e9,S.e21,S.e50,S.st].forEach(s=>s.applyOptions({priceFormat:pf}));
@@ -221,7 +237,7 @@ function draw(cs,htf,htfm,fit){const X=ctx(cs,htf,tf,htfm),n=cs.length-1,k=cs[n]
     lines.push(S.c.createPriceLine({price:e-d*a,color:"#ef4444",lineWidth:1,lineStyle:2,title:"SL"}));
     lines.push(S.c.createPriceLine({price:e+d*a*2,color:"#22c55e",lineWidth:1,lineStyle:2,title:"TP"}));}
   lastData={cs,X,k,cur};showInfo();
-  if(fit){const N=cs.length;ch.timeScale().setVisibleLogicalRange({from:N-90,to:N+3});}}
+  if(fit){const N=cs.length;ch.timeScale().setVisibleLogicalRange({from:Math.max(0,N-90),to:N+3});}}
 function showInfo(i){if(!lastData)return;const{cs,X,k,cur}=lastData,j=i==null?cs.length-1:i,c=cs[j],dp=DP[coin];
   const sg=cur?cur.sg:0,pill=`<span class="pill" style="background:${sg===1?"#22c55e":sg===-1?"#ef4444":"#8b949e"}">${sg===1?"بخر":sg===-1?"بفروش":"صبر کن"}</span>`;
   $("info").innerHTML=`${pill}<span>${coin} ${TFL[tf]}</span><span>امتیاز ${cur&&cur.sc?cur.sc.s.toFixed(1):"—"}</span>`+
@@ -230,7 +246,7 @@ let liveBusy=false,lastFull=Date.now();
 async function live(P){if(liveBusy||mode!=="sig")return;liveBusy=true;
   try{if(Date.now()-lastFull>60000){lastFull=Date.now();liveBusy=false;return loadSigSilent();}
     const j=await (await fetch(`https://api.exchange.coinbase.com/products/${P}/ticker`)).json(),p=+j.price;
-    if(lastData&&isFinite(p)){const cs=lastData.cs,c=cs[cs.length-1],ms=tf*6e4,b=Math.floor(Date.now()/ms)*ms;
+    if(lastData&&isFinite(p)){const cs=lastData.cs,c=cs[cs.length-1],ms=tf*6e4,b=tf>=10080?c.t:Math.floor(Date.now()/ms)*ms;
       if(b>c.t){S.c.update({time:ts(b),open:c.c,high:Math.max(c.c,p),low:Math.min(c.c,p),close:p});cs.push({t:b,o:c.c,h:Math.max(c.c,p),l:Math.min(c.c,p),c:p,v:0});}
       else{c.h=Math.max(c.h,p);c.l=Math.min(c.l,p);c.c=p;S.c.update({time:ts(c.t),open:c.o,high:c.h,low:c.l,close:c.c});}showInfo();}}catch(e){}
   liveBusy=false;}
