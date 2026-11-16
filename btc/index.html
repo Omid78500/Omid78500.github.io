@@ -25,6 +25,9 @@ h1{font-size:17px;margin:0;display:flex;align-items:center;gap:8px}
 .tabs{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
 .tab{flex:1;min-width:70px;text-align:center;padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--card);cursor:pointer;font-weight:600}
 .tab.on{background:var(--acc);color:#111;border-color:var(--acc)}
+.assets{display:flex;gap:6px;margin-top:10px}
+.asset{flex:1;text-align:center;padding:10px;border-radius:12px;border:1px solid var(--line);background:var(--card);cursor:pointer;font-weight:800}
+.asset.on{border-color:var(--acc);background:color-mix(in srgb,var(--acc) 22%,var(--card))}
 .tab[disabled]{opacity:.35;pointer-events:none}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:12px}
 .card h3{margin:0 0 8px;font-size:15px}
@@ -74,7 +77,7 @@ a{color:var(--blue);word-break:break-all;font-size:12px}
 <div class="wrap">
 <header>
   <div>
-    <h1><span class="coin">₿</span> سیگنال‌یاب بیت‌کوین</h1>
+    <h1><span class="coin" id="coin">₿</span> <span id="ttl">سیگنال‌یاب بیت‌کوین</span></h1>
     <div class="sub" id="status">در حال بارگذاری…</div>
   </div>
   <div><div class="price" id="price">—</div><div class="sub" style="text-align:left;direction:ltr" id="chg"></div></div>
@@ -84,6 +87,7 @@ a{color:var(--blue);word-break:break-all;font-size:12px}
 <a href="news.html" style="display:block;margin-top:8px;padding:12px;border-radius:12px;background:#f7931a22;border:1px solid #2a323c;color:#e6edf3;text-decoration:none;font-weight:700;text-align:center">📡 رادار خبر — کِی آماده باشم؟ ←</a>
 <a href="bot.html" style="display:block;margin-top:8px;padding:12px;border-radius:12px;background:#58a6ff22;border:1px solid #2a323c;color:#e6edf3;text-decoration:none;font-weight:700;text-align:center">🤖 ربات معاملات آزمایشی Alpaca ←</a>
 <a href="chart.html" style="display:block;margin-top:8px;padding:12px;border-radius:12px;background:#bc8cff22;border:1px solid #2a323c;color:#e6edf3;text-decoration:none;font-weight:700;text-align:center">📈 چارت حرفه‌ای (TradingView) ←</a>
+<div class="assets"><div class="asset" data-a="BTC">₿ بیت‌کوین</div><div class="asset" data-a="GOLD">🥇 طلا</div></div>
 <div class="tabs" id="tabs"></div>
 <div class="card warn" id="modeBox" style="display:none"></div>
 
@@ -160,8 +164,7 @@ a{color:var(--blue);word-break:break-all;font-size:12px}
 <div class="card" id="pasteCard">
   <h3>📥 بارگذاری داده واقعی (برای گوشی)</h3>
   <div class="small">یکی از لینک‌ها را در مرورگر باز کن، همه متن را کپی کن و این‌جا بچسبان. لینک ۵ دقیقه هر سه تایم‌فریم ۵، ۱۰ و ۱۵ را می‌سازد. لینک ۱۵ دقیقه تاریخچه طولانی‌تری برای ۱۵ دقیقه و ۱ ساعت می‌دهد.</div>
-  <div style="margin:6px 0">۵ دقیقه: <a href="https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=300" target="_blank" rel="noopener">https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=300</a></div>
-  <div style="margin:6px 0">۱۵ دقیقه: <a href="https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=900" target="_blank" rel="noopener">https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=900</a></div>
+  <div id="pasteLinks"></div>
   <textarea id="paste" placeholder="[[1731600000,91000,91250,91100,91200,12.3], ...]"></textarea>
   <div class="row"><button class="pri" id="btnAnalyze">تحلیل کن</button></div>
   <div class="small" id="pasteMsg"></div>
@@ -175,9 +178,13 @@ a{color:var(--blue);word-break:break-all;font-size:12px}
 const $=id=>document.getElementById(id);
 const TFS=[5,10,15,60,300,600,1440], TFL={5:"۵ دقیقه",10:"۱۰ دقیقه",15:"۱۵ دقیقه",60:"۱ ساعت",300:"۵ ساعت",600:"۱۰ ساعت",1440:"۱ روز",10080:"هفتگی"}, HTF={5:15,10:60,15:60,60:300,300:1440,600:1440,1440:10080};
 let TH=5;const MAXS=14;
+const ASSETS={
+  BTC:{name:"بیت‌کوین",unit:"BTC",icon:"₿",acc:"#f7931a",cb:"BTC-USD",bn:"BTCUSDT",bnus:"BTCUSDT",kr:"XBTUSD",demo:95000,pd:0},
+  GOLD:{name:"طلا (اونس)",unit:"اونس",icon:"Au",acc:"#d4af37",cb:"PAXG-USD",bn:"PAXGUSDT",bnus:"PAXGUSDT",kr:"PAXGUSD",demo:4000,pd:1}};
+let AS="BTC";
 let DS={}, tf=15, source="", isLive=false, liveTimer=null, alertOn=false, useClosed=true, audioCtx=null, lastSig={}, nVis=90, hoverI=null, VIEW=null;
 const store={get(k,d){try{const v=localStorage.getItem("btcsig_"+k);return v==null?d:JSON.parse(v);}catch(e){return d;}},set(k,v){try{localStorage.setItem("btcsig_"+k,JSON.stringify(v));}catch(e){}}};
-tf=store.get("tf",15);["bal","risk","lev"].forEach(k=>{const v=store.get(k,null);if(v!=null)$(k).value=v;});
+AS=ASSETS[store.get("asset","BTC")]?store.get("asset","BTC"):"BTC";tf=store.get("tf",15);["bal","risk","lev"].forEach(k=>{const v=store.get(k,null);if(v!=null)$(k).value=v;});
 ["rr","slm","th"].forEach(k=>{const v=store.get(k,null);if(v!=null)$(k).value=v;});TH=+$("th").value||5;
 
 /* ===== indicators ===== */
@@ -240,15 +247,18 @@ async function getJSON(url){const ctl=new AbortController(),to=setTimeout(()=>ct
   try{const r=await fetch(url,{signal:ctl.signal});if(!r.ok)throw new Error(r.status);return parseText(await r.text());}finally{clearTimeout(to);}}
 async function coinbase(gran,pages){let all=[],end=Date.now();
   for(let p=0;p<pages;p++){const start=end-300*gran*1000;
-    const u=`https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=${gran}&start=${new Date(start).toISOString()}&end=${new Date(end).toISOString()}`;
+    const u=`https://api.exchange.coinbase.com/products/${ASSETS[AS].cb}/candles?granularity=${gran}&start=${new Date(start).toISOString()}&end=${new Date(end).toISOString()}`;
     all=all.concat(await getJSON(u));end=start;}return normalize(all);}
-async function binance(host,iv){return getJSON(`https://${host}/api/v3/klines?symbol=BTCUSDT&interval=${iv}&limit=1000`);}
+async function binance(host,iv){const A=ASSETS[AS];return getJSON(`https://${host}/api/v3/klines?symbol=${host.includes(".us")?A.bnus:A.bn}&interval=${iv}&limit=1000`);}
+async function kraken(iv){return getJSON(`https://api.kraken.com/0/public/OHLC?pair=${ASSETS[AS].kr}&interval=${iv}`);}
 async function fetchLive(){
   const hi=(c,d)=>({60:c,300:agg(c,60,300),600:agg(c,60,600),1440:d,10080:agg(d,1440,10080)});
   try{const[a,b,c,d]=await Promise.all([coinbase(300,2),coinbase(900,1),coinbase(3600,6),coinbase(86400,1)]);
     if(a.length>100)return{ds:{5:a,10:agg(a,5,10),15:b.length>60?b:agg(a,5,15),...hi(c,d)},name:"Coinbase"};}catch(e){}
   for(const h of["api.binance.us","api.binance.com"]){try{const[a,b,c,d]=await Promise.all([binance(h,"5m"),binance(h,"15m"),binance(h,"1h"),binance(h,"1d")]);
     if(a.length>100)return{ds:{5:a,10:agg(a,5,10),15:b,...hi(c,d)},name:h.includes(".us")?"Binance.US":"Binance"};}catch(e){}}
+  try{const[a,b,c,d]=await Promise.all([kraken(5),kraken(15),kraken(60),kraken(1440)]);
+    if(a.length>100)return{ds:{5:a,10:agg(a,5,10),15:b,...hi(c,d)},name:"Kraken"};}catch(e){}
   return null;}
 
 /* ===== analysis ===== */
@@ -362,7 +372,7 @@ function render(){
   // calc
   const bal=+$("bal").value||0,rk=+$("risk").value||0,lev=+$("lev").value||1,rUSD=bal*rk/100,size=risk?rUSD/risk:0,notional=size*e,need=bal?notional/bal:0;
   const fitSize=need>lev?bal*lev/e:size;
-  $("calc").innerHTML=[["مبلغ ریسک","$"+fmt(rUSD)],["حجم پیشنهادی (BTC)",fmt(fitSize,6)],["ارزش پوزیشن","$"+fmt(fitSize*e)],
+  $("calc").innerHTML=[["مبلغ ریسک","$"+fmt(rUSD)],[`حجم پیشنهادی (${ASSETS[AS].unit})`,fmt(fitSize,AS==="BTC"?6:4)],["ارزش پوزیشن","$"+fmt(fitSize*e)],
     ["سود در حد سود ۲","$"+fmt(fitSize*risk*rr)],["ضرر در حد ضرر","$"+fmt(fitSize*risk)],["اهرم لازم",fmt(need,2)+"x"]].map(([t,v])=>`<div class="stat"><span>${t}</span><b>${v}</b></div>`).join("")+
     (need>lev?`<div class="stat" style="grid-column:1/-1"><span class="neg">با این اهرم، حجم محدود شد و ریسک واقعی کمتر از ${fa(rk)}٪ است.</span></div>`:"");
   // backtest
@@ -382,13 +392,13 @@ function line(g,arr,s,N,cw,y,col,wd=1.3,dash){g.strokeStyle=col;g.lineWidth=wd;g
   for(let i=0;i<N;i++){const v=arr[s+i];if(v==null){on=false;continue;}const x=i*cw+cw/2;on?g.lineTo(x,y(v)):g.moveTo(x,y(v));on=true;}g.stroke();g.setLineDash([]);}
 function nice(a,b,k=5){const st=(b-a)/k,m=Math.pow(10,Math.floor(Math.log10(st))),step=[1,2,2.5,5,10].map(x=>x*m).find(x=>x>=st),o=[];for(let v=Math.ceil(a/step)*step;v<=b;v+=step)o.push(v);return o;}
 function axis(g,w,ticks,y,d){g.font="10px sans-serif";g.textAlign="left";ticks.forEach(v=>{const yy=y(v);g.strokeStyle="#1d242c";g.lineWidth=1;g.beginPath();g.moveTo(0,yy);g.lineTo(w-AX,yy);g.stroke();g.fillStyle="#8b949e";g.fillText(fmt(v,d),w-AX+4,yy+3);});}
-function tag(g,w,y,v,bg,fg){g.fillStyle=bg;g.fillRect(w-AX,y-8,AX,16);g.fillStyle=fg;g.font="bold 10px sans-serif";g.textAlign="left";g.fillText(fmt(v,0),w-AX+4,y+4);}
+function tag(g,w,y,v,bg,fg){g.fillStyle=bg;g.fillRect(w-AX,y-8,AX,16);g.fillStyle=fg;g.font="bold 10px sans-serif";g.textAlign="left";g.fillText(fmt(v,ASSETS[AS].pd),w-AX+4,y+4);}
 function draw(){if(!VIEW)return;const{X,k,bt}=VIEW,cs=X.cs;
   let{g,w,h}=setup($("cMain"));const{s,N,cw}=win(w);let mn=Infinity,mx=-Infinity;
   for(let i=s;i<cs.length;i++){mn=Math.min(mn,cs[i].l);mx=Math.max(mx,cs[i].h);}
   [VIEW.sl,VIEW.tp].forEach(v=>{if(v!=null){mn=Math.min(mn,v);mx=Math.max(mx,v);}});
   const pad=(mx-mn)*0.07;mn-=pad;mx+=pad;const ph=h-18,y=v=>ph-(v-mn)/(mx-mn)*ph;
-  axis(g,w,nice(mn,mx),y,0);
+  const PD=(mx-mn)<60?1:0;axis(g,w,nice(mn,mx),y,PD);
   line(g,X.vw,s,N,cw,y,"#9ca3af",1,[3,3]);
   for(let i=0;i<N;i++){const j=s+i;if(X.stl[j]==null||X.stl[j-1]==null||X.st[j]!==X.st[j-1])continue;g.strokeStyle=X.st[j]===1?"rgba(34,197,94,.55)":"rgba(239,68,68,.55)";g.lineWidth=2;
     g.beginPath();g.moveTo((i-1)*cw+cw/2,y(X.stl[j-1]));g.lineTo(i*cw+cw/2,y(X.stl[j]));g.stroke();}
@@ -413,7 +423,7 @@ function draw(){if(!VIEW)return;const{X,k,bt}=VIEW,cs=X.cs;
   line(g,X.mm,s,N,cw,ym,"#58a6ff");line(g,X.ms,s,N,cw,ym,"#f7931a");}
 function hover(ev){if(!VIEW)return;const rc=$("cMain").getBoundingClientRect(),{s,N,cw}=win(rc.width),i=Math.floor((ev.clientX-rc.left)/cw);if(i<0||i>=N)return;
   hoverI=i;const j=s+i,c=VIEW.X.cs[j],sc=scoreAt(VIEW.X,j);
-  $("info").textContent=`${hm(c.t)} O ${fmt(c.o,0)} H ${fmt(c.h,0)} L ${fmt(c.l,0)} C ${fmt(c.c,0)} | RSI ${fmt(VIEW.X.R[j],0)} | score ${sc?fmt(sc.s,1):"—"}`;draw();}
+  const pd=ASSETS[AS].pd;$("info").textContent=`${hm(c.t)} O ${fmt(c.o,pd)} H ${fmt(c.h,pd)} L ${fmt(c.l,pd)} C ${fmt(c.c,pd)} | RSI ${fmt(VIEW.X.R[j],0)} | score ${sc?fmt(sc.s,1):"—"}`;draw();}
 $("cMain").addEventListener("pointerdown",hover);$("cMain").addEventListener("pointermove",e=>{if(e.pointerType==="mouse")hover(e);});
 $("zIn").onclick=()=>{nVis=Math.max(30,Math.round(nVis/1.4));draw();};$("zOut").onclick=()=>{nVis=Math.min(400,Math.round(nVis*1.4));draw();};
 window.addEventListener("resize",()=>draw());
@@ -433,14 +443,15 @@ setInterval(()=>{const ms=tf*6e4,left=ms-Date.now()%ms,hh=Math.floor(left/36e5),
   $("countdown").textContent=isLive?`⏱ بسته شدن کندل ${TFL[tf]} بعدی: ${hh?fa(hh)+" ساعت و "+fa(m)+" دقیقه":fa(m)+":"+s.toString().padStart(2,"0").replace(/\d/g,d=>"۰۱۲۳۴۵۶۷۸۹"[d])}`:"";},1000);
 
 /* ===== modes ===== */
-async function goLive(){$("status").textContent="در حال اتصال به صرافی…";const r=await fetchLive();clearTimeout(liveTimer);
+let liveGen=0;
+async function goLive(){const my=++liveGen;$("status").textContent="در حال اتصال به صرافی…";const r=await fetchLive();if(my!==liveGen)return;clearTimeout(liveTimer);
   if(r){DS=r.ds;source=r.name+" · زنده";isLive=true;$("modeBox").style.display="none";render();liveTimer=setTimeout(goLive,30000);return;}
   isLive=false;$("modeBox").style.display="block";
   $("modeBox").innerHTML="📵 این صفحه اجازه اتصال مستقیم به صرافی را ندارد، پس الان <b>داده نمونه</b> نشان داده می‌شود. برای سیگنال واقعی، از بخش «بارگذاری داده واقعی» پایین صفحه داده را بچسبان، یا فایل HTML را روی لپ‌تاپ با Chrome باز کن تا زنده کار کند.";
   if(!Object.keys(DS).length)demo();else render();}
-function demo(){let p=95000,t=Date.now()-Date.now()%300000-1199*300000;const o=[];
-  for(let i=0;i<1200;i++){const op=p,dr=Math.sin(i/70)*22+Math.sin(i/23)*9,c=op+dr+(Math.random()-.5)*170;
-    o.push({t,o:op,h:Math.max(op,c)+Math.random()*80,l:Math.min(op,c)-Math.random()*80,c,v:5+Math.random()*20*(1+Math.abs(c-op)/90)});p=c;t+=300000;}
+function demo(){const sc=ASSETS[AS].demo/95000;let p=ASSETS[AS].demo,t=Date.now()-Date.now()%300000-1199*300000;const o=[];
+  for(let i=0;i<1200;i++){const op=p,dr=(Math.sin(i/70)*22+Math.sin(i/23)*9)*sc,c=op+dr+(Math.random()-.5)*170*sc;
+    o.push({t,o:op,h:Math.max(op,c)+Math.random()*80*sc,l:Math.min(op,c)-Math.random()*80*sc,c,v:5+Math.random()*20*(1+Math.abs(c-op)/(90*sc))});p=c;t+=300000;}
   DS=buildFrom(o).ds;source="داده نمونه (ساختگی)";isLive=false;render();}
 $("btnDemo").onclick=()=>{clearTimeout(liveTimer);demo();};
 $("btnLive").onclick=goLive;
@@ -451,6 +462,16 @@ $("btnAnalyze").onclick=()=>{try{const d=parseText($("paste").value),{ds,g}=buil
     render();const age=(Date.now()-d[d.length-1].t)/6e4;
     $("pasteMsg").textContent="✓ تحلیل شد."+(age>30?` (توجه: آخرین کندل ${fa(Math.round(age))} دقیقه پیش است؛ برای سیگنال تازه دوباره کپی کن.)`:"");
     window.scrollTo({top:0,behavior:"smooth"});}catch(e){$("pasteMsg").textContent="خطا: "+e.message;}};
+function applyAsset(){const A=ASSETS[AS];document.documentElement.style.setProperty("--acc",A.acc);
+  $("coin").textContent=A.icon;$("coin").style.fontSize=AS==="BTC"?"":"12px";$("ttl").textContent="سیگنال‌یاب "+A.name;
+  document.title="سیگنال‌یاب "+A.name+" — ۱۰ و ۱۵ دقیقه";
+  document.querySelectorAll(".asset").forEach(el=>el.classList.toggle("on",el.dataset.a===AS));
+  const L=g=>`https://api.exchange.coinbase.com/products/${A.cb}/candles?granularity=${g}`;
+  $("pasteLinks").innerHTML=`<div style="margin:6px 0">۵ دقیقه: <a href="${L(300)}" target="_blank" rel="noopener">${L(300)}</a></div><div style="margin:6px 0">۱۵ دقیقه: <a href="${L(900)}" target="_blank" rel="noopener">${L(900)}</a></div>`+
+    (AS==="GOLD"?`<div class="small">طلا از روی PAXG خوانده می‌شود؛ توکنی که هر واحدش پشتوانه یک اونس طلای واقعی دارد و ۲۴ ساعته معامله می‌شود. قیمتش معمولاً چند دلار با قیمت اسپات طلا (XAU/USD) فرق دارد.</div>`:"");}
+document.querySelectorAll(".asset").forEach(el=>el.onclick=()=>{if(el.dataset.a===AS)return;AS=el.dataset.a;store.set("asset",AS);
+  clearTimeout(liveTimer);DS={};VIEW=null;lastSig={};hoverI=null;applyAsset();$("price").textContent="—";$("chg").innerHTML="";goLive();});
+applyAsset();
 goLive();
 if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{});}
 </script>
