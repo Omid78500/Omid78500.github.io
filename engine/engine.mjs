@@ -17,7 +17,7 @@ const ASSETS=[
   {id:"ETH",name:"اتریوم",cb:"ETH-USD",hl:"ETH",kw:/\b(ethereum|ether|eth)\b/i,dp:2,crypto:true},
   {id:"SOL",name:"سولانا",cb:"SOL-USD",hl:"SOL",kw:/\b(solana|sol)\b/i,dp:3,crypto:true},
   {id:"XRP",name:"ریپل XRP",cb:"XRP-USD",hl:"XRP",kw:/\b(xrp|ripple)\b/i,dp:4,crypto:true},
-  {id:"GOLD",name:"طلا (اونس)",cb:"PAXG-USD",hl:"PAXG",kw:/\b(gold|bullion|xau|precious metals?)\b/i,dp:2,crypto:false}];
+  {id:"GOLD",name:"طلا (اونس)",cb:"PAXG-USD",hl:"PAXG",kw:/\b(gold|bullion|xau|precious metals?)\b/i,ex:/\b(inc|corp|ltd|tsxv?|nyse|nasdaq|asx|stock|shares|mining|miners?|resources|royalt\w*|explor\w*|golden|goldman|gold card|gold medal)\b/i,dp:2,crypto:false}];
 /* ===== indicators ===== */
 function ema(src,p){const o=Array(src.length).fill(null),k=2/(p+1);let s=0,c=0;
   for(let i=0;i<src.length;i++){const v=src[i];if(v==null)continue;if(c<p){s+=v;c++;if(c===p)o[i]=s/p;}else o[i]=v*k+o[i-1]*(1-k);}return o;}
@@ -180,7 +180,7 @@ async function loadNews(){let all=[];
 const MACRO=/\b(fed|federal reserve|inflation|cpi|interest rate|dollar|treasury|yields?|jobs report|payrolls|powell|recession|tariff)/i;
 function newsFor(a,news){
   // asset-specific headlines carry 70%; macro (Fed, inflation, dollar) headlines are capped at 30% so one widely-copied story can't dominate
-  const own=news.filter(n=>a.kw.test(n.t)),mac=news.filter(n=>!a.kw.test(n.t)&&MACRO.test(n.t));
+  const own=news.filter(n=>a.kw.test(n.t)&&!(a.ex&&a.ex.test(n.t))),mac=news.filter(n=>!a.kw.test(n.t)&&MACRO.test(n.t));
   const sc=list=>{let ws=0,s=0;const out=list.map(n=>{const v=headlineScore(n.t,a),age=(Date.now()-n.ts)/36e5,w=Math.exp(-age/10);ws+=w;s+=w*v;return{...n,s:v,age};});return{v:ws?clamp(s/ws):0,out,ws};};
   const O=sc(own),Mc=sc(mac),score=O.ws>0.2?0.7*O.v+0.3*Mc.v:0.5*Mc.v,rel=own.concat(mac.slice(0,0));
   const scored=O.out.sort((x,y)=>x.age-y.age).concat(Mc.out.sort((x,y)=>x.age-y.age).slice(0,3));
