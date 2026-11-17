@@ -155,11 +155,12 @@ function techFor(sets){ // sets: {15:cs,60:cs,240:cs,1440:cs,10080:cs}
 /* ================= NEWS (RSS) ================= */
 const FEEDS=[
   ["CoinDesk","https://www.coindesk.com/arc/outboundfeeds/rss/"],["Cointelegraph","https://cointelegraph.com/rss"],["Decrypt","https://decrypt.co/feed"],
-  ["Bitcoin Magazine","https://bitcoinmagazine.com/.rss/full/"],
+  ["Bitcoin Magazine","https://bitcoinmagazine.com/.rss/full/"],["The Block","https://www.theblock.co/rss.xml"],
+  ["Google News: Ethereum/Solana/XRP","https://news.google.com/rss/search?q=ethereum+OR+solana+OR+xrp+when:1d&hl=en-US&gl=US&ceid=US:en"],
   ["Google News: Bitcoin","https://news.google.com/rss/search?q=bitcoin+OR+crypto+when:1d&hl=en-US&gl=US&ceid=US:en"],
   ["Google News: Gold","https://news.google.com/rss/search?q=gold+price+when:1d&hl=en-US&gl=US&ceid=US:en"],
   ["Google News: Fed","https://news.google.com/rss/search?q=federal+reserve+OR+inflation+OR+dollar+when:1d&hl=en-US&gl=US&ceid=US:en"],
-  ["FXStreet","https://www.fxstreet.com/rss/news"]];
+  ["Kitco (gold)","https://news.google.com/rss/search?q=gold+site:kitco.com+when:2d&hl=en-US&gl=US&ceid=US:en"]];
 const dec=s=>s.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g,"$1").replace(/<[^>]+>/g,"").replace(/&amp;/g,"&").replace(/&quot;/g,'"').replace(/&#39;|&#x27;|&apos;/g,"'").replace(/&lt;/g,"<").replace(/&gt;/g,">").trim();
 function parseRSS(xml,src){const items=[];for(const m of xml.matchAll(/<item[\s\S]*?<\/item>|<entry[\s\S]*?<\/entry>/g)){const it=m[0];
   const t=(it.match(/<title[^>]*>([\s\S]*?)<\/title>/)||[])[1],l=(it.match(/<link[^>]*>([\s\S]*?)<\/link>/)||it.match(/<link[^>]*href="([^"]+)"/)||[])[1],
@@ -177,9 +178,13 @@ async function loadNews(){let all=[];
   for(const[src,u]of FEEDS){try{const x=await get(u,{json:false});const it=parseRSS(x,src);all=all.concat(it);ok("news:"+src,it.length);}catch(e){ok("news:"+src,"ERR "+e.message.slice(0,60));}}
   const seen=new Set();return all.filter(n=>n.t&&isFinite(n.ts)&&Date.now()-n.ts<36*36e5).filter(n=>{const k=n.t.toLowerCase().slice(0,70);if(seen.has(k))return false;seen.add(k);return true;});}
 const MACRO=/\b(fed|federal reserve|inflation|cpi|interest rate|dollar|treasury|yields?|jobs report|payrolls|powell|recession|tariff)/i;
-function newsFor(a,news){const rel=news.filter(n=>a.kw.test(n.t)||(MACRO.test(n.t)&&n.src.includes("Fed")));let ws=0,s=0;
-  const scored=rel.map(n=>{const sc=headlineScore(n.t,a),age=(Date.now()-n.ts)/36e5,w=Math.exp(-age/10)*(a.kw.test(n.t)?1:0.5);ws+=w;s+=w*sc;return{...n,s:sc,age};}).sort((x,y)=>x.age-y.age);
-  return{score:ws?clamp(s/ws):0,count:rel.length,pos:scored.filter(n=>n.s>0).length,neg:scored.filter(n=>n.s<0).length,
+function newsFor(a,news){
+  // asset-specific headlines carry 70%; macro (Fed, inflation, dollar) headlines are capped at 30% so one widely-copied story can't dominate
+  const own=news.filter(n=>a.kw.test(n.t)),mac=news.filter(n=>!a.kw.test(n.t)&&MACRO.test(n.t));
+  const sc=list=>{let ws=0,s=0;const out=list.map(n=>{const v=headlineScore(n.t,a),age=(Date.now()-n.ts)/36e5,w=Math.exp(-age/10);ws+=w;s+=w*v;return{...n,s:v,age};});return{v:ws?clamp(s/ws):0,out,ws};};
+  const O=sc(own),Mc=sc(mac),score=O.ws>0.2?0.7*O.v+0.3*Mc.v:0.5*Mc.v,rel=own.concat(mac.slice(0,0));
+  const scored=O.out.sort((x,y)=>x.age-y.age).concat(Mc.out.sort((x,y)=>x.age-y.age).slice(0,3));
+  return{score:clamp(score),macro:+Mc.v.toFixed(2),count:own.length,pos:scored.filter(n=>n.s>0).length,neg:scored.filter(n=>n.s<0).length,
     headlines:scored.slice(0,8).map(n=>({t:n.t,u:n.u,src:n.src,s:+n.s.toFixed(1),ts:n.ts}))};}
 
 /* ================= CROWD SENTIMENT ================= */
@@ -208,7 +213,7 @@ function derivFor(a,P,prev){if(!P||!P[a.hl])return null;const c=P[a.hl],f=+c.fun
 
 /* ================= CALENDAR RISK ================= */
 async function calendar(){let ev=[];for(const u of["https://nfs.faireconomy.media/ff_calendar_thisweek.json","https://nfs.faireconomy.media/ff_calendar_nextweek.json"]){
-  try{const j=await get(u);ev=ev.concat(j.filter(e=>e.country==="USD"&&e.impact==="High").map(e=>({t:e.title,ts:Date.parse(e.date)})));ok("calendar "+u.slice(-17),j.length);}catch(e){ok("calendar "+u.slice(-17),"ERR "+e.message.slice(0,60));}}
+  try{const j=await get(u);ev=ev.concat(j.filter(e=>e.country==="USD"&&e.impact==="High").map(e=>({t:e.title,ts:Date.parse(e.date)})));ok("economic calendar "+(u.includes("next")?"next week":"this week"),j.length);}catch(e){if(!/404/.test(e.message))ok("economic calendar","ERR "+e.message.slice(0,60));}}
   return ev.filter(e=>isFinite(e.ts)).sort((a,b)=>a.ts-b.ts);}
 
 /* ================= COMBINE ================= */
@@ -227,7 +232,7 @@ function combine(a,T,N,C,D,risk,prevState){const parts={tech:T.score,news:N.scor
 async function main(){
   const prevSig=readJ(SIG_F,{assets:[]}),hist=readJ(HIST_F,{}),prevBy={};(prevSig.assets||[]).forEach(a=>prevBy[a.id]=a);
   const[news,fg,P,risk]=await Promise.all([loadNews(),fearGreed(),perps(),calendar()]);
-  let posts=[];for(const sub of["Bitcoin","CryptoCurrency","Gold","wallstreetbets"]){posts=posts.concat(await reddit(sub));await sleep(400);}
+  const posts=[]; // Reddit blocks requests from GitHub's servers, so crowd mood comes from the Fear & Greed index
   const out=[];
   for(const a of ASSETS){try{
     const c15=await candles(a.cb,900,1),c1h=await candles(a.cb,3600,4),c1d=await candles(a.cb,86400,1);ok("candles:"+a.id,`${c15.length}/${c1h.length}/${c1d.length}`);
