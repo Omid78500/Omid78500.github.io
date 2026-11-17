@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0f14">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>سیگنال ترکیبی طلا و کریپتو</title>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b0f14;--card:#141a21;--card2:#0f141a;--line:#2a323c;--txt:#e6edf3;--mut:#8b949e;--up:#22c55e;--dn:#ef4444;--acc:#f7931a;--blue:#58a6ff;--gold:#eab308}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font-family:Vazirmatn,Tahoma,sans-serif;font-size:15px;line-height:1.6}
+.wrap{max-width:760px;margin:0 auto;padding:calc(12px + env(safe-area-inset-top)) 12px calc(40px + env(safe-area-inset-bottom))}
+.top{display:flex;justify-content:space-between;align-items:center;gap:8px}h1{font-size:18px;margin:0}.top a{color:var(--blue);font-size:13px;text-decoration:none}
+.small{font-size:12px;color:var(--mut)}
+.chips{display:flex;gap:6px;overflow-x:auto;margin-top:10px;padding-bottom:4px}
+.chip{flex:none;border:1px solid var(--line);background:var(--card);border-radius:12px;padding:8px 12px;cursor:pointer;text-align:center;min-width:86px}
+.chip b{display:block;font-size:14px}.chip.on{outline:2px solid var(--acc)}
+.pill{display:inline-block;padding:0 9px;border-radius:12px;font-weight:800;font-size:12px}
+.p1{background:rgba(34,197,94,.2);color:var(--up)}.p-1{background:rgba(239,68,68,.2);color:var(--dn)}.p0{background:#2a323c;color:var(--mut)}
+.hero{text-align:center;padding:16px 10px;border-radius:16px;margin-top:12px;border:2px solid var(--line)}
+.hero.s1{background:linear-gradient(180deg,rgba(34,197,94,.22),rgba(34,197,94,.04));border-color:var(--up)}
+.hero.s-1{background:linear-gradient(180deg,rgba(239,68,68,.22),rgba(239,68,68,.04));border-color:var(--dn)}
+.hero.s0{background:linear-gradient(180deg,rgba(139,148,158,.16),rgba(139,148,158,.03))}
+.hero .big{font-size:38px;font-weight:800;line-height:1.2}.hero .px{font-size:22px;font-weight:700;direction:ltr}
+.bar{height:10px;border-radius:6px;background:#222a33;overflow:hidden;margin:8px auto 2px;max-width:320px}.bar i{display:block;height:100%}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:12px}
+.card h3{margin:0 0 8px;font-size:15px}
+.part{display:grid;grid-template-columns:96px 1fr 52px;align-items:center;gap:8px;margin:6px 0;font-size:14px}
+.track{position:relative;height:12px;background:#222a33;border-radius:6px}
+.track::after{content:"";position:absolute;left:50%;top:-3px;bottom:-3px;width:2px;background:#4b5563}
+.fill{position:absolute;top:0;bottom:0;border-radius:6px}
+.v{direction:ltr;text-align:left;font-weight:700}
+.pos{color:var(--up)}.neg{color:var(--dn)}.neu{color:var(--mut)}
+ul{margin:0;padding:0 18px 0 0}li{margin:3px 0;font-size:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+.stat{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:8px}.stat span{font-size:12px;color:var(--mut);display:block}.stat b{direction:ltr;display:block;text-align:right}
+table{width:100%;border-collapse:collapse;font-size:13px}td,th{padding:6px 4px;border-bottom:1px solid var(--line);text-align:right}th{font-size:12px;color:var(--mut);font-weight:600}
+.news a{color:var(--txt);text-decoration:none;display:block;padding:7px 0;border-bottom:1px solid var(--line);font-size:14px;direction:ltr;text-align:left}
+.warn{border-color:#9e6a03;background:#231b05}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="top"><h1>🧠 سیگنال ترکیبی</h1><a href="./">← سیگنال‌یاب</a></div>
+<div class="small" id="upd">در حال بارگذاری…</div>
+<div class="chips" id="chips"></div>
+
+<div id="main" style="display:none">
+  <div class="hero s0" id="hero">
+    <div class="small" id="hName"></div>
+    <div class="big" id="hSig">—</div>
+    <div class="px" id="hPx"></div>
+    <div class="bar"><i id="hBar"></i></div>
+    <div class="small" id="hMeta"></div>
+  </div>
+  <div class="card warn" id="riskBox" style="display:none"></div>
+
+  <div class="card"><h3>⚖️ از چه چیزهایی تصمیم گرفته شد</h3><div id="parts"></div>
+    <div class="small" id="wts" style="margin-top:6px"></div></div>
+
+  <div class="card"><h3>🎯 سطوح مهم</h3><div class="grid" id="lv"></div></div>
+
+  <div class="card"><h3>📈 بازار (تحلیل تکنیکال)</h3>
+    <table><thead><tr><th>تایم‌فریم</th><th>وضعیت</th><th>امتیاز</th><th>RSI</th><th>قدرت روند</th><th>برد گذشته</th></tr></thead><tbody id="tfs"></tbody></table>
+    <ul id="tReasons" style="margin-top:8px"></ul></div>
+
+  <div class="card news"><h3>📰 خبرها <span class="small" id="nSum"></span></h3><div id="news"></div></div>
+  <div class="card"><h3>👥 احساسات بازار و معامله‌گران اهرمی</h3><ul id="crowd"></ul></div>
+  <div class="card"><h3>📒 کارنامه واقعی این دارایی</h3><div class="grid" id="hs"></div>
+    <table style="margin-top:8px"><thead><tr><th>زمان</th><th>سیگنال</th><th>قیمت</th><th>بعد از ۲۴ ساعت</th></tr></thead><tbody id="hist"></tbody></table></div>
+</div>
+
+<div class="card"><h3>🔌 منابع داده (آخرین بررسی)</h3><div class="small" id="src"></div></div>
+<p class="small">موتور هر ۱۵ دقیقه روی سرور اجرا می‌شود (گاهی GitHub چند دقیقه دیرتر). «طلا» از قیمت توکن PAXG است که یک اونس طلای واقعی پشتش است و ۲۴ ساعته معامله می‌شود. این ابزار توصیه مالی نیست؛ هیچ ترکیبی از خبر و اندیکاتور آینده را تضمین نمی‌کند.</p>
+</div>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const fa=n=>Number(n).toLocaleString("fa-IR");
+const fmt=(v,d=2)=>v==null||!isFinite(v)?"—":Number(v).toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
+const ago=t=>{const m=Math.round((Date.now()-t)/6e4);return m<1?"همین الان":m<60?fa(m)+" دقیقه پیش":m<1440?fa(Math.round(m/60))+" ساعت پیش":fa(Math.round(m/1440))+" روز پیش";};
+const SIG={1:["بخر","BUY"],"-1":["بفروش","SELL"],0:["صبر کن","WAIT"]};
+const PN={tech:"📈 بازار",news:"📰 خبرها",crowd:"👥 احساسات",deriv:"⚡ اهرمی‌ها"};
+let D=null,H={},sel=null;try{sel=localStorage.getItem("eng_sel");}catch(e){}
+async function J(f){const r=await fetch(f+"?t="+Date.now(),{cache:"no-store"});if(!r.ok)throw new Error(r.status);return r.json();}
+async function load(){try{D=await J("engine/signals.json");}catch(e){$("upd").textContent="هنوز اولین تحلیل آماده نشده؛ چند دقیقه دیگر سر بزن.";return;}
+  try{H=await J("engine/history.json");}catch(e){H={};}
+  const late=Date.now()-D.updated>45*6e4;$("upd").innerHTML=`آخرین تحلیل: ${ago(D.updated)}${late?' <span class="neg">(دیر شده)</span>':""}`;
+  if(!sel||!D.assets.find(a=>a.id===sel))sel=D.assets[0].id;render();}
+function chips(){$("chips").innerHTML=D.assets.map(a=>`<div class="chip ${a.id===sel?"on":""}" data-id="${a.id}"><b>${a.name}</b><span class="pill p${a.state}">${SIG[a.state][0]}</span></div>`).join("");
+  document.querySelectorAll(".chip").forEach(c=>c.onclick=()=>{sel=c.dataset.id;try{localStorage.setItem("eng_sel",sel);}catch(e){}render();});}
+function render(){chips();const a=D.assets.find(x=>x.id===sel);if(!a)return;$("main").style.display="block";
+  $("hero").className="hero s"+a.state;$("hName").textContent=a.name+(a.stale?" — داده قدیمی":"");
+  $("hSig").textContent=SIG[a.state][0]+" "+(a.state===1?"▲":a.state===-1?"▼":"✋");
+  $("hPx").innerHTML=`$${fmt(a.price,a.dp)} <span class="${a.ch24>=0?"pos":"neg"}" style="font-size:14px">${a.ch24>=0?"+":""}${fmt(a.ch24)}% (24h)</span>`;
+  $("hBar").style.width=a.conf+"%";$("hBar").style.background=a.state===1?"var(--up)":a.state===-1?"var(--dn)":"#6b7280";
+  $("hMeta").textContent=`امتیاز کل ${a.final>=0?"+":""}${fmt(a.final*100,0)} از ±۱۰۰ · اطمینان ${fa(a.conf)}٪ · از ${ago(a.since)} همین سیگنال`+(a.state===0?` · تمایل: ${a.final>0.05?"خرید":a.final<-0.05?"فروش":"هیچ‌کدام"}`:"");
+  const rb=$("riskBox");if(a.risk){rb.style.display="block";rb.textContent=`⚠️ خبر مهم اقتصادی نزدیک است: ${a.risk.t} — ${new Date(a.risk.ts).toLocaleString("fa-IR",{weekday:"long",hour:"2-digit",minute:"2-digit"})}. اطمینان سیگنال کم شده؛ بهتر است تا بعد از خبر صبر کنی.`;}else rb.style.display="none";
+  $("parts").innerHTML=Object.entries(a.parts).filter(([k,v])=>v!=null).map(([k,v])=>{const w=Math.abs(v)*50,left=v>=0?50:50-w;
+    return`<div class="part"><span>${PN[k]}</span><div class="track"><div class="fill" style="left:${left}%;width:${w}%;background:${v>=0?"var(--up)":"var(--dn)"}"></div></div><span class="v ${v>0.05?"pos":v<-0.05?"neg":"neu"}">${v>0?"+":""}${fmt(v*100,0)}</span></div>`;}).join("");
+  $("wts").textContent=`وزن‌ها: بازار ${fa(D.weights.tech*100)}٪ · اهرمی‌ها ${fa(D.weights.deriv*100)}٪ · خبر ${fa(D.weights.news*100)}٪ · احساسات ${fa(D.weights.crowd*100)}٪. سبز = به سمت خرید، قرمز = به سمت فروش.`+(a.tech.align==="mixed"?" تایم‌فریم‌ها با هم تضاد دارند، پس امتیاز کم شد.":"");
+  const L=a.levels,dir=a.state||1;
+  $("lv").innerHTML=[["ورود",L.entry],[a.state?"حد ضرر":"حد ضرر (اگر وارد شوی)",L.sl],["حد سود ۱",L.tp1],["حد سود ۲",L.tp2],["حمایت نزدیک",L.sup],["مقاومت نزدیک",L.res]]
+    .map(([t,v])=>`<div class="stat"><span>${t}</span><b>$${fmt(v,a.dp)}</b></div>`).join("")+(a.state?"":`<div class="stat" style="grid-column:1/-1"><span>الان سیگنال ورود نیست؛ سطوح برای سناریوی ${a.final>=0?"خرید":"فروش"} است (حد ضرر = ۱٫۵ برابر نوسان ۴ ساعته).</span></div>`);
+  $("tfs").innerHTML=a.tech.tfs.map(t=>`<tr><td>${t.label}</td><td><span class="pill p${t.state}">${SIG[t.state][0]}</span></td><td style="direction:ltr;text-align:right">${t.score}</td><td>${t.rsi??"—"}</td><td>${t.adx==null?"—":t.adx>25?"قوی":t.adx>18?"متوسط":"ضعیف"}</td><td>${t.bt.n>=3?`<span class="${t.bt.netR>=0?"pos":"neg"}">${fa(t.bt.wr)}٪</span> <span class="small">(${fa(t.bt.n)})</span>`:"—"}</td></tr>`).join("");
+  $("tReasons").innerHTML=(a.tech.reasons||[]).map(r=>`<li class="${r.p>0?"pos":"neg"}">${r.p>0?"▲":"▼"} ${r.t} <span class="small">(۴ ساعته)</span></li>`).join("");
+  $("nSum").textContent=`${fa(a.news.count)} خبر مرتبط در ۳۶ ساعت · ${fa(a.news.pos)} مثبت · ${fa(a.news.neg)} منفی`;
+  $("news").innerHTML=a.news.headlines.map(n=>`<a href="${n.u}" target="_blank" rel="noopener"><span class="pill ${n.s>0?"p1":n.s<0?"p-1":"p0"}" style="margin-right:6px">${n.s>0?"مثبت":n.s<0?"منفی":"خنثی"}</span> ${n.t}<div class="small">${n.src} · ${ago(n.ts)}</div></a>`).join("")||'<div class="small">خبر مرتبطی پیدا نشد.</div>';
+  const cr=[...(a.crowd.detail||[]),...((a.deriv&&a.deriv.detail)||[])];
+  $("crowd").innerHTML=cr.map(d=>`<li class="${d.p>0?"pos":d.p<0?"neg":"neu"}">${d.t}</li>`).join("")||'<li class="neu">داده‌ای نیست.</li>';
+  const hh=(H[a.id]||[]),done=hh.filter(x=>x.res),w=done.filter(x=>x.res==="win").length;
+  $("hs").innerHTML=[["سیگنال‌های سنجیده‌شده",fa(done.length)],["درست بعد از ۲۴ ساعت",done.length?fa(w)+" ("+fa(Math.round(w/done.length*100))+"٪)":"هنوز زود است"]].map(([t,v])=>`<div class="stat"><span>${t}</span><b>${v}</b></div>`).join("");
+  $("hist").innerHTML=hh.slice(0,15).map(x=>`<tr><td>${new Date(x.t).toLocaleString("fa-IR",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})}</td><td><span class="pill p${x.signal==="BUY"?1:x.signal==="SELL"?-1:0}">${SIG[x.signal==="BUY"?1:x.signal==="SELL"?-1:0][0]}</span></td><td style="direction:ltr">$${fmt(x.price,a.dp)}</td><td>${x.res?`<span class="${x.res==="win"?"pos":"neg"}">${x.ret24>0?"+":""}${x.ret24}% ${x.res==="win"?"✓":"✗"}</span>`:x.signal==="WAIT"?"—":'<span class="neu">در انتظار</span>'}</td></tr>`).join("")||'<tr><td colspan="4" class="neu">هنوز سیگنالی ثبت نشده</td></tr>';
+  const S=D.sources||{};$("src").innerHTML=Object.entries(S).map(([k,v])=>`<div>${String(v).startsWith("ERR")?"🔴":"🟢"} ${k}${String(v).startsWith("ERR")?"":" ("+v+")"}</div>`).join("");}
+load();setInterval(load,120000);
+if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{});}
+</script>
+</body>
+</html>
