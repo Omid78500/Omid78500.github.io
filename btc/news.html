@@ -56,7 +56,8 @@ canvas{width:100%;display:block}
 
 <div class="card">
   <h3>🔔 نگهبان حرکت ناگهانی</h3>
-  <div class="small">وقتی این صفحه باز است، هر ۲۰ ثانیه BTC را چک می‌کند و اگر حرکت یا حجم غیرعادی شروع شود، هشدار می‌دهد.</div>
+  <div class="row" style="margin-bottom:6px"><button id="aBTC" class="on">₿ BTC</button><button id="aNQ">📊 نزدک ۱۰۰</button></div>
+  <div class="small">وقتی این صفحه باز است، هر ۲۰ ثانیه <span id="wName">BTC</span> را چک می‌کند و اگر حرکت یا حجم غیرعادی شروع شود، هشدار می‌دهد.</div>
   <div class="row" style="margin-top:8px"><button id="snd">🔈 صدای هشدار: خاموش</button><span class="small" id="watch">—</span></div>
 </div>
 
@@ -68,7 +69,7 @@ canvas{width:100%;display:block}
 </div>
 
 <div class="card">
-  <h3>⏱ پرنوسان‌ترین ساعت‌های روز (۲۵ روز اخیر)</h3>
+  <h3 id="hoursH">⏱ پرنوسان‌ترین ساعت‌های روز (۲۵ روز اخیر)</h3>
   <canvas id="hours" height="160"></canvas>
   <div class="small" id="hoursTxt" style="margin-top:6px"></div>
 </div>
@@ -92,6 +93,14 @@ const $=id=>document.getElementById(id);
 const fa=n=>Number(n).toLocaleString("fa-IR");
 const TZ=Intl.DateTimeFormat().resolvedOptions().timeZone;
 $("tz").textContent="منطقه زمانی گوشی: "+TZ;
+/* ===== asset (BTC via Coinbase, Nasdaq-100 via Hyperliquid XYZ100) ===== */
+let WA="BTC";try{if(localStorage.getItem("radar_asset")==="NASDAQ")WA="NASDAQ";}catch(e){}
+const WN=()=>WA==="BTC"?"BTC":"نزدک ۱۰۰";
+async function hlC(iv,n){const ms={"1m":6e4,"1h":36e5}[iv],r=await fetch("https://api.hyperliquid.xyz/info",{method:"POST",headers:{"Content-Type":"application/json"},
+  body:JSON.stringify({type:"candleSnapshot",req:{coin:"xyz:XYZ100",interval:iv,startTime:Date.now()-n*ms,endTime:Date.now()}})});if(!r.ok)throw new Error(r.status);
+  return(await r.json()).map(c=>({t:+c.t,o:+c.o,h:+c.h,l:+c.l,c:+c.c,v:+c.v}));}
+function setWA(a){WA=a;try{localStorage.setItem("radar_asset",a);}catch(e){}$("aBTC").classList.toggle("on",a==="BTC");$("aNQ").classList.toggle("on",a==="NASDAQ");
+  $("wName").textContent=WN();$("hoursH").textContent=`⏱ پرنوسان‌ترین ساعت‌های روز — ${WN()}`;$("watch").textContent="—";$("alarm").style.display="none";watch();loadHours();}
 async function getJ(u,ms=8000){const c=new AbortController(),t=setTimeout(()=>c.abort(),ms);try{const r=await fetch(u,{signal:c.signal});if(!r.ok)throw new Error(r.status);return await r.json();}finally{clearTimeout(t);}}
 
 /* ===== time helpers ===== */
@@ -145,7 +154,8 @@ setInterval(()=>{if(CAL.length)renderCal();},1000);
 
 /* ===== volatility by hour ===== */
 async function loadHours(){try{let all=[],end=Date.now();
-  for(let p=0;p<2;p++){const st=end-300*36e5;const c=await getJ(`https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=3600&start=${new Date(st).toISOString()}&end=${new Date(end).toISOString()}`);all=all.concat(c);end=st;}
+  if(WA==="NASDAQ")all=(await hlC("1h",600)).map(c=>[c.t/1000,c.l,c.h,c.o,c.c,c.v]);
+  else for(let p=0;p<2;p++){const st=end-300*36e5;const c=await getJ(`https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=3600&start=${new Date(st).toISOString()}&end=${new Date(end).toISOString()}`);all=all.concat(c);end=st;}
   const sum=Array(24).fill(0),n=Array(24).fill(0);
   all.forEach(r=>{const h=new Date(r[0]*1000).getHours();sum[h]+=(r[2]-r[1])/r[4]*100;n[h]++;});
   const avg=sum.map((s,i)=>n[i]?s/n[i]:0),mx=Math.max(...avg),top=avg.map((v,i)=>[v,i]).sort((a,b)=>b[0]-a[0]).slice(0,3).map(x=>x[1]);
@@ -153,7 +163,7 @@ async function loadHours(){try{let all=[],end=Date.now();
   const bw=w/24;avg.forEach((v,i)=>{const bh=(v/mx)*(h-28);g.fillStyle=top.includes(i)?"#ef4444":v>mx*0.7?"#f7931a":"#3b4652";g.fillRect(i*bw+1,h-16-bh,bw-2,bh);
     if(i%3===0){g.fillStyle="#8b949e";g.font="10px sans-serif";g.textAlign="center";g.fillText(i,i*bw+bw/2,h-3);}});
   const nowH=new Date().getHours();g.strokeStyle="#58a6ff";g.lineWidth=2;g.strokeRect(nowH*bw+0.5,4,bw-1,h-20);
-  $("hoursTxt").textContent=`پرنوسان‌ترین ساعت‌ها به وقت تو: ${top.sort((a,b)=>a-b).map(x=>fa(x)+":۰۰").join("، ")}. کادر آبی = ساعت الان. (میانگین دامنه نوسان هر ساعت BTC)`;}
+  $("hoursTxt").textContent=`پرنوسان‌ترین ساعت‌ها به وقت تو: ${top.sort((a,b)=>a-b).map(x=>fa(x)+":۰۰").join("، ")}. کادر آبی = ساعت الان. (میانگین دامنه نوسان هر ساعت ${WN()})`+(WA==="NASDAQ"?" نزدک معمولاً در ساعت باز شدن بورس آمریکا (۶:۳۰ صبح کالیفرنیا) و انتشار آمار ساعت ۵:۳۰ صبح پرنوسان‌تر است.":"")+``;}
   catch(e){$("hoursTxt").textContent="داده نوسان در دسترس نبود.";}}
 
 /* ===== fear & greed ===== */
@@ -176,15 +186,16 @@ let snd=false,ac=null,lastAlarm=0;
 $("snd").onclick=()=>{snd=!snd;if(snd){try{ac=ac||new(window.AudioContext||window.webkitAudioContext)();ac.resume();beep();}catch(e){}}$("snd").textContent="🔈 صدای هشدار: "+(snd?"روشن":"خاموش");$("snd").classList.toggle("on",snd);};
 function beep(){if(!ac)return;try{for(let k=0;k<3;k++){const o=ac.createOscillator(),g=ac.createGain();o.connect(g);g.connect(ac.destination);o.frequency.value=880;const t=ac.currentTime+k*0.3;g.gain.setValueAtTime(.25,t);g.gain.exponentialRampToValueAtTime(.001,t+.25);o.start(t);o.stop(t+.25);}}catch(e){}
   try{navigator.vibrate&&navigator.vibrate([300,100,300]);}catch(e){}}
-async function watch(){try{const c=(await getJ("https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=60")).map(r=>({t:r[0]*1000,l:r[1],h:r[2],o:r[3],c:r[4],v:r[5]})).sort((a,b)=>a.t-b.t);
+async function watch(){const asAt=WA;try{const c=(WA==="NASDAQ"?await hlC("1m",300):(await getJ("https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=60")).map(r=>({t:r[0]*1000,l:r[1],h:r[2],o:r[3],c:r[4],v:r[5]}))).sort((a,b)=>a.t-b.t);if(asAt!==WA)return;
   const n=c.length-1,ret5=[];for(let i=5;i<n-5;i++)ret5.push(Math.log(c[i].c/c[i-5].c));const sd=Math.sqrt(ret5.reduce((a,b)=>a+b*b,0)/ret5.length);
   const m5=Math.log(c[n].c/c[n-5].c),vAvg=c.slice(n-65,n-5).reduce((a,b)=>a+b.v,0)/60,v5=c.slice(n-4).reduce((a,b)=>a+b.v,0)/5,z=m5/sd,vr=v5/vAvg;
-  $("watch").textContent=`BTC $${c[n].c.toLocaleString("en-US",{maximumFractionDigits:0})} · حرکت ۵ دقیقه: ${(m5*100).toFixed(2)}% (${Math.abs(z).toFixed(1)}× عادی) · حجم ${vr.toFixed(1)}× عادی`;
+  $("watch").textContent=`${WN()} $${c[n].c.toLocaleString("en-US",{maximumFractionDigits:0})} · حرکت ۵ دقیقه: ${(m5*100).toFixed(2)}% (${Math.abs(z).toFixed(1)}× عادی) · حجم ${vr.toFixed(1)}× عادی`;
   const hot=Math.abs(z)>3||vr>4&&Math.abs(z)>1.5;const al=$("alarm");
-  if(hot){al.style.display="block";al.textContent=`⚡ حرکت غیرعادی الان: BTC در ۵ دقیقه ${(m5*100).toFixed(2)}% ${m5>0?"بالا رفت ▲":"پایین آمد ▼"} — حجم ${vr.toFixed(1)} برابر عادی. احتمالاً خبری آمده؛ مراقب باش.`;
+  if(hot){al.style.display="block";al.textContent=`⚡ حرکت غیرعادی الان: ${WN()} در ۵ دقیقه ${(m5*100).toFixed(2)}% ${m5>0?"بالا رفت ▲":"پایین آمد ▼"} — حجم ${vr.toFixed(1)} برابر عادی. احتمالاً خبری آمده؛ مراقب باش.`;
     if(snd&&Date.now()-lastAlarm>5*6e4){beep();lastAlarm=Date.now();}}else al.style.display="none";}catch(e){$("watch").textContent="اتصال برقرار نشد.";}}
 
-loadCal();loadHours();loadFG();loadNews();watch();
+$("aBTC").onclick=()=>setWA("BTC");$("aNQ").onclick=()=>setWA("NASDAQ");
+loadCal();loadFG();loadNews();setWA(WA);
 setInterval(watch,20000);setInterval(loadCal,30*6e4);setInterval(loadNews,10*6e4);
 if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{});}
 </script>

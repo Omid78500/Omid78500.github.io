@@ -1,4 +1,4 @@
-name: Signal engine (gold + crypto)
+name: Signal engine (gold + nasdaq + crypto)
 
 on:
   schedule:

@@ -87,8 +87,8 @@ a{color:var(--blue);word-break:break-all;font-size:12px}
 <a href="news.html" style="display:block;margin-top:8px;padding:12px;border-radius:12px;background:#f7931a22;border:1px solid #2a323c;color:#e6edf3;text-decoration:none;font-weight:700;text-align:center">📡 رادار خبر — کِی آماده باشم؟ ←</a>
 <a href="bot.html" style="display:block;margin-top:8px;padding:12px;border-radius:12px;background:#58a6ff22;border:1px solid #2a323c;color:#e6edf3;text-decoration:none;font-weight:700;text-align:center">🤖 ربات معاملات آزمایشی Alpaca ←</a>
 <a href="chart.html" style="display:block;margin-top:8px;padding:12px;border-radius:12px;background:#bc8cff22;border:1px solid #2a323c;color:#e6edf3;text-decoration:none;font-weight:700;text-align:center">📈 چارت حرفه‌ای (TradingView) ←</a>
-<div class="assets"><div class="asset" data-a="BTC">₿ بیت‌کوین</div><div class="asset" data-a="GOLD">🥇 طلا</div></div>
-<a href="signals.html" style="display:block;margin-top:10px;padding:14px;border-radius:12px;background:linear-gradient(90deg,#eab30833,#22c55e33);border:1px solid #2a323c;color:#e6edf3;text-decoration:none;font-weight:800;text-align:center">🧠 سیگنال ترکیبی طلا و کریپتو (بازار + خبر + احساسات) ←</a>
+<div class="assets"><div class="asset" data-a="BTC">₿ بیت‌کوین</div><div class="asset" data-a="GOLD">🥇 طلا</div><div class="asset" data-a="NASDAQ">📊 نزدک</div></div>
+<a href="signals.html" style="display:block;margin-top:10px;padding:14px;border-radius:12px;background:linear-gradient(90deg,#eab30833,#22c55e33);border:1px solid #2a323c;color:#e6edf3;text-decoration:none;font-weight:800;text-align:center">🧠 سیگنال ترکیبی طلا، نزدک و کریپتو (بازار + خبر + احساسات) ←</a>
 <div class="tabs" id="tabs"></div>
 <div class="card warn" id="modeBox" style="display:none"></div>
 
@@ -181,7 +181,9 @@ const TFS=[5,10,15,60,300,600,1440], TFL={5:"۵ دقیقه",10:"۱۰ دقیقه"
 let TH=5;const MAXS=14;
 const ASSETS={
   BTC:{name:"بیت‌کوین",unit:"BTC",icon:"₿",acc:"#f7931a",cb:"BTC-USD",bn:"BTCUSDT",bnus:"BTCUSDT",kr:"XBTUSD",demo:95000,pd:0},
-  GOLD:{name:"طلا (اونس)",unit:"اونس",icon:"Au",acc:"#d4af37",cb:"PAXG-USD",bn:"PAXGUSDT",bnus:"PAXGUSDT",kr:"PAXGUSD",demo:4000,pd:1}};
+  GOLD:{name:"طلا (اونس)",unit:"اونس",icon:"Au",acc:"#d4af37",cb:"PAXG-USD",bn:"PAXGUSDT",bnus:"PAXGUSDT",kr:"PAXGUSD",demo:4000,pd:1},
+  // Nasdaq-100 index: read from Hyperliquid's xyz:XYZ100 perp, which tracks the Nasdaq-100 and trades 24/7
+  NASDAQ:{name:"نزدک ۱۰۰",unit:"واحد",icon:"NQ",acc:"#3b82f6",hl:"xyz:XYZ100",demo:25000,pd:1}};
 let AS="BTC";
 let DS={}, tf=15, source="", isLive=false, liveTimer=null, alertOn=false, useClosed=true, audioCtx=null, lastSig={}, nVis=90, hoverI=null, VIEW=null;
 const store={get(k,d){try{const v=localStorage.getItem("btcsig_"+k);return v==null?d:JSON.parse(v);}catch(e){return d;}},set(k,v){try{localStorage.setItem("btcsig_"+k,JSON.stringify(v));}catch(e){}}};
@@ -252,8 +254,14 @@ async function coinbase(gran,pages){let all=[],end=Date.now();
     all=all.concat(await getJSON(u));end=start;}return normalize(all);}
 async function binance(host,iv){const A=ASSETS[AS];return getJSON(`https://${host}/api/v3/klines?symbol=${host.includes(".us")?A.bnus:A.bn}&interval=${iv}&limit=1000`);}
 async function kraken(iv){return getJSON(`https://api.kraken.com/0/public/OHLC?pair=${ASSETS[AS].kr}&interval=${iv}`);}
+async function hl(iv,n){const ms={"5m":3e5,"15m":9e5,"1h":36e5,"1d":864e5}[iv],ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),8000);
+  try{const r=await fetch("https://api.hyperliquid.xyz/info",{method:"POST",headers:{"Content-Type":"application/json"},signal:ctl.signal,
+      body:JSON.stringify({type:"candleSnapshot",req:{coin:ASSETS[AS].hl,interval:iv,startTime:Date.now()-n*ms,endTime:Date.now()}})});
+    if(!r.ok)throw new Error(r.status);const j=await r.json();return normalize(j.map(c=>({t:+c.t,o:+c.o,h:+c.h,l:+c.l,c:+c.c,v:+c.v})));}finally{clearTimeout(to);}}
 async function fetchLive(){
   const hi=(c,d)=>({60:c,300:agg(c,60,300),600:agg(c,60,600),1440:d,10080:agg(d,1440,10080)});
+  if(ASSETS[AS].hl){try{const[a,b,c,d]=await Promise.all([hl("5m",1000),hl("15m",600),hl("1h",1800),hl("1d",400)]);
+    if(a.length>100)return{ds:{5:a,10:agg(a,5,10),15:b,...hi(c,d)},name:"Hyperliquid (XYZ100)"};}catch(e){}return null;}
   try{const[a,b,c,d]=await Promise.all([coinbase(300,2),coinbase(900,1),coinbase(3600,6),coinbase(86400,1)]);
     if(a.length>100)return{ds:{5:a,10:agg(a,5,10),15:b.length>60?b:agg(a,5,15),...hi(c,d)},name:"Coinbase"};}catch(e){}
   for(const h of["api.binance.us","api.binance.com"]){try{const[a,b,c,d]=await Promise.all([binance(h,"5m"),binance(h,"15m"),binance(h,"1h"),binance(h,"1d")]);
@@ -467,6 +475,7 @@ function applyAsset(){const A=ASSETS[AS];document.documentElement.style.setPrope
   $("coin").textContent=A.icon;$("coin").style.fontSize=AS==="BTC"?"":"12px";$("ttl").textContent="سیگنال‌یاب "+A.name;
   document.title="سیگنال‌یاب "+A.name+" — ۱۰ و ۱۵ دقیقه";
   document.querySelectorAll(".asset").forEach(el=>el.classList.toggle("on",el.dataset.a===AS));
+  if(A.hl){$("pasteLinks").innerHTML=`<div class="small" style="margin:6px 0">نزدک از بازار XYZ100 در Hyperliquid خوانده می‌شود که شاخص نزدک ۱۰۰ را دنبال می‌کند و ۲۴ ساعته معامله می‌شود (حتی وقتی بورس آمریکا بسته است). این منبع لینک کپی‌کردنی ندارد؛ اگر اتصال زنده کار نکرد، داده ۵ یا ۱۵ دقیقه‌ای نزدک (مثلاً CSV از TradingView) را این‌جا بچسبان. خارج از ساعت بورس (۶:۳۰ صبح تا ۱ ظهر به وقت کالیفرنیا) حرکت‌ها معمولاً کم‌حجم‌تر و کم‌اعتبارترند.</div>`;return;}
   const L=g=>`https://api.exchange.coinbase.com/products/${A.cb}/candles?granularity=${g}`;
   $("pasteLinks").innerHTML=`<div style="margin:6px 0">۵ دقیقه: <a href="${L(300)}" target="_blank" rel="noopener">${L(300)}</a></div><div style="margin:6px 0">۱۵ دقیقه: <a href="${L(900)}" target="_blank" rel="noopener">${L(900)}</a></div>`+
     (AS==="GOLD"?`<div class="small">طلا از روی PAXG خوانده می‌شود؛ توکنی که هر واحدش پشتوانه یک اونس طلای واقعی دارد و ۲۴ ساعته معامله می‌شود. قیمتش معمولاً چند دلار با قیمت اسپات طلا (XAU/USD) فرق دارد.</div>`:"");}

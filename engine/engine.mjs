@@ -17,7 +17,9 @@ const ASSETS=[
   {id:"ETH",name:"اتریوم",cb:"ETH-USD",hl:"ETH",kw:/\b(ethereum|ether|eth)\b/i,dp:2,crypto:true},
   {id:"SOL",name:"سولانا",cb:"SOL-USD",hl:"SOL",kw:/\b(solana|sol)\b/i,dp:3,crypto:true},
   {id:"XRP",name:"ریپل XRP",cb:"XRP-USD",hl:"XRP",kw:/\b(xrp|ripple)\b/i,dp:4,crypto:true},
-  {id:"GOLD",name:"طلا (اونس)",cb:"PAXG-USD",hl:"PAXG",kw:/\b(gold|bullion|xau|precious metals?)\b/i,ex:/\b(inc|corp|ltd|tsxv?|nyse|nasdaq|asx|stock|shares|mining|miners?|resources|royalt\w*|explor\w*|golden|goldman|gold card|gold medal)\b/i,dp:2,crypto:false}];
+  {id:"GOLD",name:"طلا (اونس)",cb:"PAXG-USD",hl:"PAXG",kw:/\b(gold|bullion|xau|precious metals?)\b/i,ex:/\b(inc|corp|ltd|tsxv?|nyse|nasdaq|asx|stock|shares|mining|miners?|resources|royalt\w*|explor\w*|golden|goldman|gold card|gold medal)\b/i,dp:2,crypto:false,safe:true},
+  // Nasdaq-100: Coinbase has no index, so candles come from Hyperliquid's xyz:XYZ100 perp (tracks the Nasdaq-100, trades 24/7)
+  {id:"NASDAQ",name:"نزدک ۱۰۰",hl:"xyz:XYZ100",dex:"xyz",yh:"^NDX",kw:/\b(nasdaq|ndx|nasdaq[- ]100|tech stocks?|wall street|s&p 500|stock market|stocks? (rally|fall|slide|surge|drop|climb)|equities|magnificent seven|nvidia|apple|microsoft|meta|alphabet|amazon|tesla)\b/i,ex:/\b(listed on (the )?nasdaq|nasdaq:\s*[a-z]+|ipo)\b/i,dp:2,crypto:false}];
 /* ===== indicators ===== */
 function ema(src,p){const o=Array(src.length).fill(null),k=2/(p+1);let s=0,c=0;
   for(let i=0;i<src.length;i++){const v=src[i];if(v==null)continue;if(c<p){s+=v;c++;if(c===p)o[i]=s/p;}else o[i]=v*k+o[i-1]*(1-k);}return o;}
@@ -135,6 +137,15 @@ function backtest(X,k,rr,slm){const T=[],marks=[];let pos=null,prev=0;
   const w=T.filter(t=>t.win).length;return{T,marks,n:T.length,w,wr:T.length?w/T.length*100:0,netR:w*rr-(T.length-w),open:pos};}
 
 /* ================= MARKET DATA ================= */
+const HLI={300:"5m",900:"15m",3600:"1h",86400:"1d"};
+async function hlCandles(coin,gran,n){const j=await get("https://api.hyperliquid.xyz/info",{opt:{method:"POST",headers:{"Content-Type":"application/json"},
+  body:JSON.stringify({type:"candleSnapshot",req:{coin,interval:HLI[gran],startTime:Date.now()-n*gran*1000,endTime:Date.now()}})}});
+  if(!Array.isArray(j)||!j.length)throw new Error("no candles "+coin);return normalize(j.map(c=>({t:+c.t,o:+c.o,h:+c.h,l:+c.l,c:+c.c,v:+c.v})));}
+async function yahoo(sym,gran,n){const iv={900:"15m",3600:"60m",86400:"1d"}[gran],rg={900:"30d",3600:"200d",86400:"2y"}[gran];
+  const j=await get(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=${iv}&range=${rg}`),r=j.chart.result[0],q=r.indicators.quote[0];
+  return normalize(r.timestamp.map((t,i)=>({t:t*1000,o:q.open[i],h:q.high[i],l:q.low[i],c:q.close[i],v:q.volume[i]}))).slice(-n);}
+async function candlesFor(a,gran,pages){if(!a.cb){try{return await hlCandles(a.hl,gran,300*pages);}catch(e){ok("hl-candles:"+a.id,"ERR "+e.message.slice(0,50));return yahoo(a.yh,gran,300*pages);}}
+  return candles(a.cb,gran,pages);}
 async function candles(product,gran,pages){let all=[],end=Date.now();
   for(let p=0;p<pages;p++){const st=end-300*gran*1000;
     const t=await get(`https://api.exchange.coinbase.com/products/${product}/candles?granularity=${gran}&start=${new Date(st).toISOString()}&end=${new Date(end).toISOString()}`,{json:false});
@@ -160,6 +171,7 @@ const FEEDS=[
   ["Google News: Bitcoin","https://news.google.com/rss/search?q=bitcoin+OR+crypto+when:1d&hl=en-US&gl=US&ceid=US:en"],
   ["Google News: Gold","https://news.google.com/rss/search?q=gold+price+when:1d&hl=en-US&gl=US&ceid=US:en"],
   ["Google News: Fed","https://news.google.com/rss/search?q=federal+reserve+OR+inflation+OR+dollar+when:1d&hl=en-US&gl=US&ceid=US:en"],
+  ["Google News: Nasdaq","https://news.google.com/rss/search?q=nasdaq+OR+%22stock+market%22+OR+%22tech+stocks%22+when:1d&hl=en-US&gl=US&ceid=US:en"],
   ["Kitco (gold)","https://news.google.com/rss/search?q=gold+site:kitco.com+when:2d&hl=en-US&gl=US&ceid=US:en"]];
 const dec=s=>s.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g,"$1").replace(/<[^>]+>/g,"").replace(/&amp;/g,"&").replace(/&quot;/g,'"').replace(/&#39;|&#x27;|&apos;/g,"'").replace(/&lt;/g,"<").replace(/&gt;/g,">").trim();
 function parseRSS(xml,src){const items=[];for(const m of xml.matchAll(/<item[\s\S]*?<\/item>|<entry[\s\S]*?<\/entry>/g)){const it=m[0];
@@ -173,7 +185,7 @@ const RISK_OFF=/\b(war|attack|missile|conflict|recession|crisis|tariff|geopoliti
 const RATE_CUT=/\b(rate cuts?|cut rates|dovish|easing|stimulus)/i, RATE_HIKE=/\b(rate hikes?|hike rates|hawkish|tightening|strong(er)? dollar|dollar (rallies|jumps|strengthens|surges))/i;
 function headlineScore(t,a){let s=0;if(POS.test(t))s+=1;if(NEG.test(t))s-=1;
   if(RATE_CUT.test(t))s+=0.7;if(RATE_HIKE.test(t))s-=0.7;
-  if(RISK_OFF.test(t))s+=a.crypto?-0.5:0.8;return clamp(s,-1.5,1.5);}
+  if(RISK_OFF.test(t))s+=a.safe?0.8:-0.5;return clamp(s,-1.5,1.5);}
 async function loadNews(){let all=[];
   for(const[src,u]of FEEDS){try{const x=await get(u,{json:false});const it=parseRSS(x,src);all=all.concat(it);ok("news:"+src,it.length);}catch(e){ok("news:"+src,"ERR "+e.message.slice(0,60));}}
   const seen=new Set();return all.filter(n=>n.t&&isFinite(n.ts)&&Date.now()-n.ts<36*36e5).filter(n=>{const k=n.t.toLowerCase().slice(0,70);if(seen.has(k))return false;seen.add(k);return true;});}
@@ -195,14 +207,16 @@ async function reddit(sub){try{const j=await get(`https://www.reddit.com/r/${sub
 function crowdFor(a,fg,posts){const d=[];let s=0,w=0;
   if(a.crypto&&fg){const c=fg.v<=20?0.6:fg.v<=35?0.25:fg.v>=80?-0.6:fg.v>=65?-0.25:0;s+=c*1;w+=1;
     d.push({p:Math.sign(c),t:`شاخص ترس و طمع ${fg.v} (${fg.label}) — ${fg.v<=35?"ترس زیاد معمولاً نزدیک کف‌هاست (نگاه مخالف جمع)":fg.v>=65?"طمع زیاد معمولاً نزدیک سقف‌هاست (نگاه مخالف جمع)":"خنثی"}`});}
-  const rel=posts.filter(p=>a.kw.test(p.title)||(!a.crypto&&/gold/i.test(p.subreddit)));
+  const rel=posts.filter(p=>a.kw.test(p.title)||(a.safe&&/gold/i.test(p.subreddit)));
   if(rel.length>=3){let ps=0,pw=0;rel.forEach(p=>{const sc=headlineScore(p.title,a),ww=Math.log10(10+p.score);ps+=sc*ww;pw+=ww;});const r=clamp(ps/pw);
     s+=r*0.6;w+=0.6;d.push({p:Math.sign(Math.round(r*10)),t:`حال‌وهوای Reddit (${rel.length} پست داغ): ${r>0.15?"مثبت":r<-0.15?"منفی":"خنثی"}`});}
   return{score:w?clamp(s/w):0,detail:d};}
 
 /* ================= DERIVATIVES (Hyperliquid perps) ================= */
-async function perps(){try{const j=await get("https://api.hyperliquid.xyz/info",{opt:{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:"metaAndAssetCtxs"})}});
-  const m={};j[0].universe.forEach((u,i)=>m[u.name]=j[1][i]);ok("hyperliquid",Object.keys(m).length);return m;}catch(e){ok("hyperliquid","ERR "+e.message.slice(0,60));return null;}}
+async function perps(){const m={};
+  for(const dex of["","xyz"]){try{const j=await get("https://api.hyperliquid.xyz/info",{opt:{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(dex?{type:"metaAndAssetCtxs",dex}:{type:"metaAndAssetCtxs"})}});
+    let n=0;j[0].universe.forEach((u,i)=>{m[u.name]=j[1][i];if(dex&&!u.name.includes(":"))m[dex+":"+u.name]=j[1][i];n++;});ok("hyperliquid"+(dex?":"+dex:""),n);}catch(e){ok("hyperliquid"+(dex?":"+dex:""),"ERR "+e.message.slice(0,60));}}
+  return Object.keys(m).length?m:null;}
 function derivFor(a,P,prev){if(!P||!P[a.hl])return null;const c=P[a.hl],f=+c.funding,ann=f*24*365*100,oi=+c.openInterest*(+c.markPx||+c.oraclePx),d=[];let s=0;
   if(ann>40){s-=0.6;d.push({p:-1,t:`فاندینگ خیلی مثبت (${ann.toFixed(0)}٪ سالانه) — خریداران اهرمی زیادند، خطر ریزش ناگهانی`});}
   else if(ann>15){s-=0.25;d.push({p:-1,t:`فاندینگ مثبت (${ann.toFixed(0)}٪ سالانه) — کمی شلوغی سمت خرید`});}
@@ -235,7 +249,7 @@ async function main(){
   const posts=[]; // Reddit blocks requests from GitHub's servers, so crowd mood comes from the Fear & Greed index
   const out=[];
   for(const a of ASSETS){try{
-    const c15=await candles(a.cb,900,1),c1h=await candles(a.cb,3600,4),c1d=await candles(a.cb,86400,1);ok("candles:"+a.id,`${c15.length}/${c1h.length}/${c1d.length}`);
+    const c15=await candlesFor(a,900,1),c1h=await candlesFor(a,3600,4),c1d=await candlesFor(a,86400,1);ok("candles:"+a.id,`${c15.length}/${c1h.length}/${c1d.length}`);
     const sets={15:c15,60:c1h,240:agg(c1h,60,240),1440:c1d,10080:agg(c1d,1440,10080)};
     const T=techFor(sets),N=newsFor(a,news),C=crowdFor(a,fg,posts),D=derivFor(a,P,prevBy[a.id]&&prevBy[a.id].deriv),prev=prevBy[a.id];
     const R=combine(a,T,N,C,D,risk,prev&&prev.state),price=c15[c15.length-1].c,p24=c1h[Math.max(0,c1h.length-25)].c;

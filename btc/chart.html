@@ -31,7 +31,7 @@ html,body{margin:0;background:var(--bg);color:var(--txt);font-family:Vazirmatn,T
 <body>
 <div class="bar">
   <div class="seg" id="mode"><button data-m="tv" class="on">TradingView کامل</button><button data-m="sig">چارت سیگنال</button></div>
-  <div class="seg" id="coin"><button data-c="BTC" class="on">BTC</button><button data-c="ETH">ETH</button><button data-c="SOL">SOL</button><button data-c="XRP">XRP</button><button data-c="GOLD">🥇 طلا</button></div>
+  <div class="seg" id="coin"><button data-c="BTC" class="on">BTC</button><button data-c="ETH">ETH</button><button data-c="SOL">SOL</button><button data-c="XRP">XRP</button><button data-c="GOLD">🥇 طلا</button><button data-c="NASDAQ">📊 نزدک</button></div>
   <div class="seg" id="tfs"><button data-t="5">5m</button><button data-t="10">10m</button><button data-t="15" class="on">15m</button><button data-t="60">1h</button><button data-t="1440">1D</button><button data-t="10080">1W</button><button data-t="43200">1M</button></div>
   <a href="./">← سیگنال‌یاب</a>
 </div>
@@ -56,8 +56,9 @@ let mode=store.get("mode","tv"),coin=store.get("coin","BTC"),tf=store.get("tf",1
 const TFL={5:"5m",10:"10m",15:"15m",60:"1h",1440:"1D",10080:"1W",43200:"1M"};
 const TVI={1440:"D",10080:"W",43200:"M"};
 let TH=5;try{const v=localStorage.getItem("btcsig_th");if(v)TH=+JSON.parse(v)||5;}catch(e){}
-const DP={BTC:2,ETH:2,SOL:3,XRP:4,GOLD:2};
-const TVSYM={GOLD:"OANDA:XAUUSD"};const CBP={GOLD:"PAXG"};
+const DP={BTC:2,ETH:2,SOL:3,XRP:4,GOLD:2,NASDAQ:2};
+const TVSYM={GOLD:"OANDA:XAUUSD",NASDAQ:"OANDA:NAS100USD"};const CBP={GOLD:"PAXG"};
+const HLP={NASDAQ:"xyz:XYZ100"}; // Nasdaq-100 via Hyperliquid's XYZ100 perp (24/7)
 /* ===== shared signal engine (same as the BTC Signal app) ===== */
 /* ===== indicators ===== */
 function ema(src,p){const o=Array(src.length).fill(null),k=2/(p+1);let s=0,c=0;
@@ -178,8 +179,14 @@ function loadTV(){const key=coin+tf;if(key===tvKey)return;tvKey=key;$("tv").inne
 
 /* ===== signal chart (lightweight-charts) ===== */
 let ch=null,rc=null,S={},lines=[],sigKey="",timer=null,lastData=null;
-const cb=c=>(CBP[c]||c)+"-USD";
-async function candles(product,gran,pages){let all=[],end=Date.now();
+const cb=c=>HLP[c]||(CBP[c]||c)+"-USD";
+const isHL=P=>P.includes(":");
+async function hlPost(body){const r=await fetch("https://api.hyperliquid.xyz/info",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});if(!r.ok)throw new Error(r.status);return r.json();}
+async function candles(product,gran,pages){
+  if(isHL(product)){const iv={300:"5m",900:"15m",3600:"1h",86400:"1d"}[gran],n=Math.min(5000,300*pages);
+    const j=await hlPost({type:"candleSnapshot",req:{coin:product,interval:iv,startTime:Date.now()-n*gran*1000,endTime:Date.now()}});
+    if(!Array.isArray(j)||!j.length)throw new Error("Hyperliquid داده نداد");return normalize(j.map(c=>({t:+c.t,o:+c.o,h:+c.h,l:+c.l,c:+c.c,v:+c.v})));}
+  let all=[],end=Date.now();
   for(let p=0;p<pages;p++){const st=end-300*gran*1000;const r=await fetch(`https://api.exchange.coinbase.com/products/${product}/candles?granularity=${gran}&start=${new Date(st).toISOString()}&end=${new Date(end).toISOString()}`);
     let rows;try{rows=parseText(await r.text());}catch(e){if(p===0)throw e;break;}if(!rows.length)break;
     all=all.concat(rows);end=st;}return normalize(all);}
@@ -245,7 +252,7 @@ function showInfo(i){if(!lastData)return;const{cs,X,k,cur}=lastData,j=i==null?cs
 let liveBusy=false,lastFull=Date.now();
 async function live(P){if(liveBusy||mode!=="sig")return;liveBusy=true;
   try{if(Date.now()-lastFull>60000){lastFull=Date.now();liveBusy=false;return loadSigSilent();}
-    const j=await (await fetch(`https://api.exchange.coinbase.com/products/${P}/ticker`)).json(),p=+j.price;
+    const p=isHL(P)?(m=>+(m[P]??m[P.split(":")[1]]))(await hlPost({type:"allMids",dex:P.split(":")[0]})):+(await (await fetch(`https://api.exchange.coinbase.com/products/${P}/ticker`)).json()).price;
     if(lastData&&isFinite(p)){const cs=lastData.cs,c=cs[cs.length-1],ms=tf*6e4,b=tf>=10080?c.t:Math.floor(Date.now()/ms)*ms;
       if(b>c.t){S.c.update({time:ts(b),open:c.c,high:Math.max(c.c,p),low:Math.min(c.c,p),close:p});cs.push({t:b,o:c.c,h:Math.max(c.c,p),l:Math.min(c.c,p),c:p,v:0});}
       else{c.h=Math.max(c.h,p);c.l=Math.min(c.l,p);c.c=p;S.c.update({time:ts(c.t),open:c.o,high:c.h,low:c.l,close:c.c});}showInfo();}}catch(e){}

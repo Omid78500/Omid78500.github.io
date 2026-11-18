@@ -118,7 +118,7 @@ th{color:var(--mut);font-weight:600;font-size:12px}
 
 <div class="card">
   <h3>📒 کارنامه واقعی تحلیل‌ها</h3>
-  <div class="small" style="margin-bottom:6px">هر تحلیل ذخیره می‌شود و بعد از تمام شدن زمان، نتیجه واقعی خودکار از Coinbase چک می‌شود (طلا از روی PAXG). این تنها راه فهمیدن دقت واقعی است.</div>
+  <div class="small" style="margin-bottom:6px">هر تحلیل ذخیره می‌شود و بعد از تمام شدن زمان، نتیجه واقعی خودکار از Coinbase چک می‌شود (طلا از روی PAXG، نزدک از روی XYZ100). این تنها راه فهمیدن دقت واقعی است.</div>
   <div class="grid" id="logStats"></div>
   <table style="margin-top:8px"><thead><tr><th>زمان</th><th>تارگت</th><th>مدل Up</th><th>پیشنهاد</th><th>نتیجه</th></tr></thead><tbody id="logBody"></tbody></table>
   <button id="clearLog" style="margin-top:8px;font-size:13px">پاک کردن کارنامه</button>
@@ -147,7 +147,9 @@ const ASSETS={BTC:{cb:"BTC-USD",kr:"XBTUSD",bs:"btcusd",gm:"btcusd",dp:2,vol:0.0
   SOL:{cb:"SOL-USD",kr:"SOLUSD",bs:"solusd",gm:"solusd",dp:3,vol:0.001},XRP:{cb:"XRP-USD",kr:"XRPUSD",bs:"xrpusd",gm:"xrpusd",dp:4,vol:0.001},
   // Gold: crypto exchanges don't list spot gold, so the live feed is PAX Gold (PAXG, 1 token = 1 troy oz).
   // PAXG can sit a few dollars off spot; the gap is measured from the screenshot's current price and removed (see gAdj).
-  GOLD:{cb:"PAXG-USD",kr:"PAXGUSD",bs:"paxgusd",gm:"paxgusd",dp:2,vol:0.0004,proxy:"PAXG"}};
+  GOLD:{cb:"PAXG-USD",kr:"PAXGUSD",bs:"paxgusd",gm:"paxgusd",dp:2,vol:0.0004,proxy:"PAXG"},
+  // Nasdaq-100: live feed is Hyperliquid's XYZ100 perp (tracks the index, trades 24/7); its gap to the market's own Nasdaq price is removed like gold's.
+  NASDAQ:{hl:"xyz:XYZ100",dp:2,vol:0.0004,proxy:"XYZ100"}};
 let AS=store.get("asset","BTC");if(!ASSETS[AS])AS="BTC";
 const fp=(v,a)=>fmt(v,ASSETS[a||AS].dp);
 const L={prices:{},S:null,candles:[],book:null,hist:[],ok:false};
@@ -156,16 +158,20 @@ function renderAssets(){$("assets").innerHTML=Object.keys(ASSETS).map(a=>`<butto
 function setAsset(a){if(!ASSETS[a])return;const ch=a!==AS;AS=a;store.set("asset",a);renderAssets();
   if(ch){Object.assign(L,{prices:{},S:null,candles:[],book:null,hist:[],ok:false});RUN=null;$("out").style.display="none";tick();slow();}}
 async function getJ(u,ms=5000){const c=new AbortController(),t=setTimeout(()=>c.abort(),ms);try{const r=await fetch(u,{signal:c.signal});if(!r.ok)throw 0;return await r.json();}finally{clearTimeout(t);}}
+async function hlPost(body,ms=7000){const c=new AbortController(),t=setTimeout(()=>c.abort(),ms);
+  try{const r=await fetch("https://api.hyperliquid.xyz/info",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body),signal:c.signal});if(!r.ok)throw 0;return await r.json();}finally{clearTimeout(t);}}
 async function candles1m(a,startMs,endMs){const A=ASSETS[a];
+  if(A.hl){const j=await hlPost({type:"candleSnapshot",req:{coin:A.hl,interval:"1m",startTime:startMs||Date.now()-300*6e4,endTime:endMs||Date.now()}});
+    return j.map(c=>({t:+c.t,o:+c.o,h:+c.h,l:+c.l,c:+c.c,v:+c.v})).sort((x,y)=>x.t-y.t);}
   try{const q=startMs?`&start=${new Date(startMs).toISOString()}&end=${new Date(endMs).toISOString()}`:"";
     const c=await getJ(`https://api.exchange.coinbase.com/products/${A.cb}/candles?granularity=60${q}`,7000);
     if(Array.isArray(c)&&c.length)return c.map(r=>({t:r[0]*1000,o:r[3],h:r[2],l:r[1],c:r[4],v:r[5]})).sort((x,y)=>x.t-y.t);}catch(e){}
   const k=await getJ(`https://api.kraken.com/0/public/OHLC?pair=${A.kr}&interval=1${startMs?"&since="+Math.floor(startMs/1000-60):""}`,7000);
   const arr=Object.entries(k.result).find(([n])=>n!=="last")[1];
   return arr.map(r=>({t:r[0]*1000,o:+r[1],h:+r[2],l:+r[3],c:+r[4],v:+r[6]})).filter(x=>!endMs||x.t<=endMs).sort((x,y)=>x.t-y.t);}
-const gAdj=()=>AS==="GOLD"&&RUN&&isFinite(RUN.adj)?RUN.adj:0; // PAXG -> gold price correction
+const gAdj=()=>ASSETS[AS].proxy&&RUN&&isFinite(RUN.adj)?RUN.adj:0; // proxy (PAXG / XYZ100) -> real gold / Nasdaq price correction
 async function tick(){const A=ASSETS[AS],asAt=AS;
-  const jobs=[
+  const jobs=A.hl?[["Hyperliquid",hlPost({type:"allMids",dex:A.hl.split(":")[0]},5000).then(m=>+(m[A.hl]??m[A.hl.split(":")[1]]))]]:[
     ["Coinbase",getJ(`https://api.exchange.coinbase.com/products/${A.cb}/ticker`).then(j=>+j.price)],
     ["Kraken",getJ(`https://api.kraken.com/0/public/Ticker?pair=${A.kr}`).then(j=>+Object.values(j.result)[0].c[0])],
     ["Bitstamp",getJ(`https://www.bitstamp.net/api/v2/ticker/${A.bs}/`).then(j=>+j.last)],
@@ -175,13 +181,14 @@ async function tick(){const A=ASSETS[AS],asAt=AS;
   const ps=Object.values(L.prices).map(x=>x.p).sort((a,b)=>a-b);
   if(ps.length){L.S=ps.length%2?ps[(ps.length-1)/2]:(ps[ps.length/2-1]+ps[ps.length/2])/2;L.ok=true;
     L.hist.push({t:Date.now(),p:L.S});L.hist=L.hist.filter(h=>Date.now()-h.t<20*6e4);
-    $("feed").textContent=`🟢 زنده از ${fa(ps.length)} صرافی (${Object.keys(L.prices).join("، ")}) · ${AS==="GOLD"?"GOLD (از روی PAXG)":AS} $${fp(L.S+gAdj())}`;}
+    $("feed").textContent=`🟢 زنده از ${fa(ps.length)} صرافی (${Object.keys(L.prices).join("، ")}) · ${AS==="GOLD"?"GOLD (از روی PAXG)":AS==="NASDAQ"?"NASDAQ (از روی XYZ100)":AS} $${fp(L.S+gAdj())}`;}
   else{L.ok=false;$("feed").textContent="🔴 اتصال به صرافی‌ها برقرار نشد. اینترنت را چک کن؛ تا وصل نشود قیمت اسکرین‌شات استفاده می‌شود.";}
   if(RUN)analyze(false);
 }
 async function slow(){
   const asAt=AS;try{const c=await candles1m(AS);if(asAt===AS)L.candles=c;}catch(e){}
-  try{const b=await getJ(`https://api.exchange.coinbase.com/products/${ASSETS[AS].cb}/book?level=2`,7000);L.book=b;}catch(e){}
+  try{const A=ASSETS[AS];if(A.hl){const j=await hlPost({type:"l2Book",coin:A.hl});L.book={bids:j.levels[0].map(x=>[x.px,x.sz]),asks:j.levels[1].map(x=>[x.px,x.sz])};}
+    else{const b=await getJ(`https://api.exchange.coinbase.com/products/${A.cb}/book?level=2`,7000);L.book=b;}}catch(e){}
   checkLog();
 }
 setInterval(tick,3000);setInterval(slow,45000);tick();slow();
@@ -208,7 +215,7 @@ $("go").onclick=()=>{const I=readInputs();
   if(!isFinite(I.secs)){alertMsg("زمان باقی‌مانده را وارد کن؛ مثلاً 10:33 را بنویس 1033 یا 10.33");return;}
   store.set("bank",$("bank").value);
   RUN={...I,end:Date.now()+I.secs*1000,logged:false};
-  if(AS==="GOLD")RUN.adj=isFinite(I.S0)&&L.ok?I.S0-L.S:0;$("out").style.display="block";analyze(true);
+  if(ASSETS[AS].proxy)RUN.adj=isFinite(I.S0)&&L.ok?I.S0-L.S:0;$("out").style.display="block";analyze(true);
   setTimeout(()=>$("out").scrollIntoView({behavior:"smooth"}),50);};
 function alertMsg(m){$("ocrMsg").innerHTML=`<span class="neg">${m}</span>`;$("ocrMsg").scrollIntoView({behavior:"smooth"});}
 
@@ -245,7 +252,7 @@ function analyze(first){
   const dist=S-R.K,sdMove=S*sig*Math.sqrt(Math.max(T,1e-9));
   $("stats").innerHTML=[["قیمت فعلی (میانه صرافی‌ها)","$"+fp(S)],["تارگت","$"+fp(R.K)],["فاصله تا تارگت",(dist>=0?"+":"")+fp(dist)],
     ["نوسان معمول تا پایان","±$"+fp(sdMove)],["فاصله بر حسب نوسان",fmt(dist/sdMove,2)+"σ"],["بازه احتمال Up",pct(Math.min(lo,hi),0)+" – "+pct(Math.max(lo,hi),0)],
-    ["مومنتوم ۵ دقیقه",pct(M.r5,3)],["مومنتوم ۱۵ دقیقه",pct(M.r15,3)],["فشار دفتر سفارش",ob==null?"—":(ob>=0?"+":"")+fmt(ob*100,0)+"% "+(ob>=0?"خرید":"فروش")]].concat(AS==="GOLD"?[["اصلاح PAXG → طلا",(adj>=0?"+$":"−$")+fmt(Math.abs(adj))]]:[])
+    ["مومنتوم ۵ دقیقه",pct(M.r5,3)],["مومنتوم ۱۵ دقیقه",pct(M.r15,3)],["فشار دفتر سفارش",ob==null?"—":(ob>=0?"+":"")+fmt(ob*100,0)+"% "+(ob>=0?"خرید":"فروش")]].concat(ASSETS[AS].proxy?[[AS==="GOLD"?"اصلاح PAXG → طلا":"اصلاح XYZ100 → نزدک",(adj>=0?"+$":"−$")+fmt(Math.abs(adj))]]:[])
     .map(([t,v])=>`<div class="stat"><span>${t}</span><b>${v}</b></div>`).join("");
   // EV & sizing
   const kelly=(p,m)=>{const b=m-1;return b>0?Math.max(0,(b*p-(1-p))/b):0;};
@@ -261,7 +268,10 @@ function analyze(first){
   if(AS==="GOLD"){if(!isFinite(R.S0))why.push({c:"neg",t:"قیمت فعلی اسکرین‌شات خالی است؛ قیمت PAXG ممکن است چند دلار با طلای بازار فرق کند. «قیمت فعلی در اسکرین‌شات» را پر کن و دوباره «تحلیل کن» را بزن."});
     else if(Math.abs(adj)>S*0.02)why.push({c:"neg",t:"اختلاف قیمت اسکرین‌شات با PAXG بیش از ۲٪ است؛ احتمالاً اسکرین‌شات مال طلا نیست یا عدد اشتباه خوانده شده."});
     else why.push({c:"neu",t:`قیمت زنده طلا از توکن PAXG گرفته می‌شود و ${fp(Math.abs(adj))} دلار اصلاح شده تا با قیمت اسکرین‌شات یکی شود. بازار اصلی طلا آخر هفته‌ها (جمعه عصر تا یکشنبه عصر) بسته است.`});}
-  why.push({c:"neu",t:`نوسان دقیقه‌ای از ${V?fa(L.candles.length):"۰"} کندل ۱ دقیقه‌ای${AS==="GOLD"?" PAXG":""}: ${pct(sig,3)} در دقیقه${V?"":" (پیش‌فرض، داده نوسان نرسید)"}.`});
+  if(AS==="NASDAQ"){if(!isFinite(R.S0))why.push({c:"neg",t:"قیمت فعلی اسکرین‌شات خالی است؛ قیمت XYZ100 ممکن است کمی با نزدک بازار شما فرق کند. «قیمت فعلی در اسکرین‌شات» را پر کن و دوباره «تحلیل کن» را بزن."});
+    else if(Math.abs(adj)>S*0.02)why.push({c:"neg",t:"اختلاف قیمت اسکرین‌شات با XYZ100 بیش از ۲٪ است؛ احتمالاً اسکرین‌شات مال نزدک ۱۰۰ نیست (مثلاً QQQ یا شاخص دیگر) یا عدد اشتباه خوانده شده."});
+    else why.push({c:"neu",t:`قیمت زنده نزدک از بازار XYZ100 در Hyperliquid گرفته می‌شود و ${fp(Math.abs(adj))} واحد اصلاح شده تا با قیمت اسکرین‌شات یکی شود. خارج از ساعت بورس آمریکا (۶:۳۰ صبح تا ۱ ظهر به وقت کالیفرنیا) و آخر هفته، حرکت‌ها کم‌حجم‌ترند و ممکن است با بازگشایی بورس «گپ» بخورد.`});}
+  why.push({c:"neu",t:`نوسان دقیقه‌ای از ${V?fa(L.candles.length):"۰"} کندل ۱ دقیقه‌ای${AS==="GOLD"?" PAXG":AS==="NASDAQ"?" XYZ100":""}: ${pct(sig,3)} در دقیقه${V?"":" (پیش‌فرض، داده نوسان نرسید)"}.`});
   if(Math.abs(M.r15)>0.0015)why.push({c:M.r15>0?"pos":"neg",t:`مومنتوم ۱۵ دقیقه ${M.r15>0?"صعودی":"نزولی"} است؛ وزن کمی در مدل دارد، چون در این بازه کوتاه پیش‌بینی‌کننده ضعیفی است.`});
   if(ob!=null&&Math.abs(ob)>0.3)why.push({c:ob>0?"pos":"neg",t:`دفتر سفارش نزدیک قیمت به سمت ${ob>0?"خرید":"فروش"} سنگین است (اثرش معمولاً فقط چند ثانیه تا چند دقیقه است).`});
   if(isFinite(R.pu)){const diff=fu-R.pu;why.push({c:Math.abs(diff)<0.05?"neu":diff>0?"pos":"neg",
@@ -302,20 +312,21 @@ $("file").onchange=async e=>{const f=e.target.files[0];if(!f)return;const url=UR
     $("ocrMsg").innerHTML=got.length?`✓ خوانده شد: ${got.join("، ")}. اعداد را چک کن و «تحلیل کن» را بزن.`:"<span class='neg'>عددی خوانده نشد؛ دستی وارد کن.</span>";
   }catch(err){$("ocrMsg").innerHTML=`<span class="neg">خواندن خودکار نشد (${err.message||err}). اعداد را دستی وارد کن.</span>`;}};
 function parseShot(txt){const got=[],t=txt.replace(/[Oo](?=[\d,.])/g,"0").replace(/S(?=\d)/g,"$"),lines=t.split(/\n/);
-  let asset=null;for(const ln of lines){if(/min/i.test(ln)){const m=ln.match(/(BTC|ETH|SOL|XRP|GOLD|G0LD)/i);if(m){asset=m[1].toUpperCase().replace("G0LD","GOLD");break;}}}
+  let asset=null;for(const ln of lines){if(/min/i.test(ln)){const m=ln.match(/(BTC|ETH|SOL|XRP|GOLD|G0LD|NASDAQ|NDX|NAS100|US100)/i);if(m){asset=m[1].toUpperCase().replace("G0LD","GOLD").replace(/^(NDX|NAS100|US100)$/,"NASDAQ");break;}}}
   if(!asset){const m=t.match(/\b(BTC|BIC|ETH|SOL|XRP)\b/i);if(m)asset=m[1].toUpperCase().replace("BIC","BTC");}
   if(!asset&&/\bG[O0]LD\b/i.test(t))asset="GOLD";
+  if(!asset&&/\b(NASDAQ|NDX|NAS100|US100|Nasdaq[- ]?100)\b/i.test(t))asset="NASDAQ";
   const money=s=>[...s.matchAll(/(\d{1,3}(?:,\d{3})+\.\d{1,6}|\d+\.\d{2,6})/g)].map(m=>parseFloat(m[1].replace(/,/g,"")));
   let prices=[];const ti=lines.findIndex(l=>/target/i.test(l));
   if(ti>=0)for(let k=ti+1;k<Math.min(lines.length,ti+4);k++){const v=money(lines[k]);if(v.length>=2){prices=v;break;}}
   if(!prices.length)prices=[...t.matchAll(/(\d{2,3}[,.]\d{3}[.,]\d{2})/g)].map(m=>parseFloat(m[1].replace(/[,.](?=\d{3}[.,])/,"").replace(",","."))).filter(v=>v>1000);
   const guess=v=>v>10000?"BTC":v>800?"ETH":v>15?"SOL":"XRP",want=prices.length?guess(prices[0]):null;
-  if(want&&asset&&asset!=="GOLD"&&guess(prices[0])!==asset&&!(asset==="ETH"&&prices[0]>800&&prices[0]<10000)&&!(asset==="SOL"&&prices[0]>15&&prices[0]<800))asset=want;
+  if(want&&asset&&asset!=="GOLD"&&asset!=="NASDAQ"&&guess(prices[0])!==asset&&!(asset==="ETH"&&prices[0]>800&&prices[0]<10000)&&!(asset==="SOL"&&prices[0]>15&&prices[0]<800))asset=want;
   if(!asset)asset=want;
   if(asset){setAsset(asset);got.push("ارز "+asset);}
   if(prices.length){$("K").value=prices[0];got.push("تارگت");if(prices[1]){$("S0").value=prices[1];got.push("قیمت فعلی");}}
   let timer=null;
-  for(const ln of lines){if(/min|BTC|BIC|ETH|SOL|XRP|GOLD/i.test(ln)){const m=ln.match(/(\d{1,2}):(\d{2})(?!\s*[AP]M)/i)||ln.match(/min\W*(\d{1,2})[.:]?(\d{2})\b/i);if(m){timer=(+m[1])+":"+m[2];break;}}}
+  for(const ln of lines){if(/min|BTC|BIC|ETH|SOL|XRP|GOLD|NASDAQ|NDX|US100/i.test(ln)){const m=ln.match(/(\d{1,2}):(\d{2})(?!\s*[AP]M)/i)||ln.match(/min\W*(\d{1,2})[.:]?(\d{2})\b/i);if(m){timer=(+m[1])+":"+m[2];break;}}}
   if(!timer){const all=[...t.matchAll(/(\d{1,2}):(\d{2})(?!\s*[AP]M)/gi)].map(m=>m[0]);timer=all.length>1?all[1]:null;}
   if(timer){$("T").value=timer;got.push("زمان");}
   const up=t.match(/Up\W{0,4}(\d{1,3}(?:\.\d+)?)\s*%/i),dn=t.match(/Down\W{0,4}(\d{1,3}(?:\.\d+)?)\s*%/i);
