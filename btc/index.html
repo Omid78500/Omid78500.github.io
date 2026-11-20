@@ -71,6 +71,13 @@ a{color:var(--blue);word-break:break-all;font-size:12px}
 .zoom{display:flex;gap:6px;justify-content:flex-end;margin-bottom:4px}
 .zoom button{padding:3px 12px}
 .small{font-size:12px;color:var(--mut)}
+#posCard{border-color:var(--dn)}
+#btnSold{background:var(--dn);border-color:var(--dn);color:#fff;font-weight:800;flex:1;padding:12px}
+#btnPosClose{flex:1;padding:12px;font-weight:700}
+#alarm{position:fixed;inset:0;z-index:99;background:rgba(127,0,0,.96);display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;animation:fl 1s infinite}
+#alarm .t{font-size:44px;font-weight:800;line-height:1.3}
+#alarm button{font-size:18px;padding:14px 22px;min-width:220px}
+@keyframes fl{50%{background:rgba(200,20,20,.96)}}
 </style>
 </head>
 <body>
@@ -98,6 +105,12 @@ a{color:var(--blue);word-break:break-all;font-size:12px}
   <div class="bar"><i id="confBar" style="width:0"></i></div>
   <div class="meta" id="sigMeta"></div>
   <div class="meta" id="countdown"></div>
+</div>
+
+<div class="card" id="posCard">
+  <h3>🔻 آلارم بستنِ فروش (تایم‌فریم ۱ ساعت)</h3>
+  <div class="small" id="posInfo"></div>
+  <div class="row"><button id="btnSold">🔻 فروختم (۱ ساعته)</button><button id="btnPosClose" style="display:none">✅ بستم، آلارم را خاموش کن</button></div>
 </div>
 
 <div class="card">
@@ -170,6 +183,9 @@ a{color:var(--blue);word-break:break-all;font-size:12px}
   <div class="row"><button class="pri" id="btnAnalyze">تحلیل کن</button></div>
   <div class="small" id="pasteMsg"></div>
 </div>
+
+<div id="alarm"><div class="t">✋ فروختی!<br>بسه، ببند</div><div id="alarmWhy" style="font-size:17px"></div>
+  <button class="pri" id="alClosed">✅ بستم</button><button id="alSnooze">🔕 ساکت (۵ دقیقه)</button></div>
 
 <p class="small">⚠️ این ابزار تحلیل تکنیکال خودکار است و توصیه مالی نیست. هیچ اندیکاتوری آینده را پیش‌بینی نمی‌کند. همیشه حد ضرر بگذار و فقط با پولی معامله کن که توان از دست دادنش را داری.</p>
 </div>
@@ -390,6 +406,7 @@ function render(){
     ["نرخ برد لازم برای سربه‌سر",fa(Math.round(100/(1+rr)))+"٪"],["معامله باز",bt.open?(bt.open.d===1?"خرید":"فروش"):"ندارد"]].map(([t,v])=>`<div class="stat"><span>${t}</span><b>${v}</b></div>`).join("");
   // alert
   const key=tf;if(isLive&&alertOn&&lastSig[key]!==undefined&&lastSig[key]!==sg&&sg!==0)beep(sg);lastSig[key]=sg;
+  checkPos();
   draw();}
 
 /* ===== charts ===== */
@@ -446,6 +463,49 @@ $("btnAlert").onclick=()=>{alertOn=!alertOn;if(alertOn){try{audioCtx=audioCtx||n
 $("btnClosed").onclick=()=>{useClosed=!useClosed;$("btnClosed").textContent="فقط کندل بسته‌شده: "+(useClosed?"روشن":"خاموش");$("btnClosed").classList.toggle("on",useClosed);render();};
 $("th").addEventListener("input",()=>{TH=+$("th").value;store.set("th",$("th").value);lastSig={};render();});
 ["rr","slm","bal","risk","lev"].forEach(id=>$(id).addEventListener("input",()=>{store.set(id,$(id).value);render();}));
+
+/* ===== 1h sell position: alarm when it's time to close ===== */
+let POS=store.get("pos1h",null),alarmTimer=null,snoozeUntil=0;
+function unlockAudio(){try{audioCtx=audioCtx||new(window.AudioContext||window.webkitAudioContext)();audioCtx.resume();}catch(e){}}
+const faVoice=()=>{try{return speechSynthesis.getVoices().find(v=>/^fa/i.test(v.lang))||null;}catch(e){return null;}};
+function say(fa,en,vol=1){try{if(!window.speechSynthesis)return;speechSynthesis.cancel();const v=faVoice(),u=new SpeechSynthesisUtterance(v?fa:en);
+  if(v){u.voice=v;u.lang=v.lang;}else u.lang="en-US";u.volume=vol;u.rate=.95;speechSynthesis.speak(u);}catch(e){}}
+function siren(){try{if(audioCtx){const t=audioCtx.currentTime;[0,.3,.6].forEach((d,i)=>{const o=audioCtx.createOscillator(),gn=audioCtx.createGain();o.type="square";
+    o.connect(gn);gn.connect(audioCtx.destination);o.frequency.setValueAtTime(i%2?660:990,t+d);gn.gain.setValueAtTime(.3,t+d);gn.gain.exponentialRampToValueAtTime(.001,t+d+.25);o.start(t+d);o.stop(t+d+.27);});}}catch(e){}
+  try{navigator.vibrate&&navigator.vibrate([400,150,400,150,400]);}catch(e){}}
+function notify(why){try{if(Notification.permission==="granted"&&navigator.serviceWorker)navigator.serviceWorker.ready
+  .then(r=>r.showNotification("✋ فروختی! بسه، ببند",{body:why,tag:"pos1h",renotify:true,requireInteraction:true,icon:"icon-192.png"})).catch(()=>{});}catch(e){}}
+function startAlarm(why){$("alarmWhy").textContent=why;$("alarm").style.display="flex";if(alarmTimer)return;let n=0;
+  const tick=()=>{if(n++%3===0)say("فروختی. بسه. ببند.","You sold. Enough. Close it now.");else siren();};tick();alarmTimer=setInterval(tick,1600);notify(why);}
+function stopAlarm(){clearInterval(alarmTimer);alarmTimer=null;try{speechSynthesis.cancel();}catch(e){}$("alarm").style.display="none";}
+function livePrice(){const t=[5,10,15,60].find(t=>DS[t]&&DS[t].length);return t?DS[t][DS[t].length-1].c:null;}
+function renderPos(){const on=!!POS;$("btnSold").style.display=on?"none":"";$("btnPosClose").style.display=on?"":"none";
+  if(!on){$("posInfo").textContent="اگر روی تایم‌فریم ۱ ساعت فروختی (Short / Down)، این دکمه را بزن. هر وقت وقت بستن شد، آلارم می‌دهد و می‌گوید «فروختی، بسه، ببند».";return;}
+  if(POS.as!==AS){$("posInfo").textContent=`یک فروش روی ${ASSETS[POS.as].name} باز است؛ برای پایشش، همان دارایی را از بالا انتخاب کن.`;return;}
+  const p=livePrice(),pl=p?(POS.e-p)/POS.e*100:0;
+  $("posInfo").innerHTML=`ورود ${fmt(POS.e)} · حد سود ${fmt(POS.tp)} · حد ضرر ${fmt(POS.sl)}<br>الان ${fmt(p)} · <b class="${pl>=0?"pos":"neg"}">${pl>=0?"+":""}${fmt(pl)}٪</b> · `+
+    (POS.why?"⛔ "+POS.why:"👀 در حال پایش؛ هنوز وقت بستن نیست")+(isLive?"":"<br>⚠️ اتصال زنده نیست؛ آلارم فقط با «اتصال زنده» کار می‌کند.");}
+function checkPos(){if(!POS||POS.as!==AS||!isLive||!(DS[60]&&DS[60].length>=60))return renderPos();
+  const B=analyzeTF(60);if(!B)return renderPos();const p=livePrice();let why=null;
+  if(B.sg===-1&&POS.sg0!==-1){POS.sg0=-1;store.set("pos1h",POS);}
+  if(p<=POS.tp)why=`قیمت به حد سود رسید (${fmt(p)}). سودت را بگیر.`;
+  else if(p>=POS.sl)why=`قیمت به حد ضرر رسید (${fmt(p)}). ببند که ضرر بیشتر نشود.`;
+  else if(B.sg===1)why="سیگنال ۱ ساعته برگشت و «بخر» شد.";
+  else if(B.sg===0&&POS.sg0===-1)why="سیگنال فروش ۱ ساعته تمام شد.";
+  POS.why=why;renderPos();if(why&&Date.now()>=snoozeUntil)startAlarm(why);}
+function closePos(){POS=null;store.set("pos1h",null);snoozeUntil=0;stopAlarm();renderPos();}
+$("btnSold").onclick=()=>{unlockAudio();
+  const B=DS[60]&&DS[60].length>=60?analyzeTF(60):null,e=livePrice();
+  if(!B||!e){$("posInfo").textContent="داده ۱ ساعته هنوز نیامده. «اتصال زنده» را بزن و دوباره امتحان کن.";return;}
+  const risk=(+$("slm").value)*B.X.atr[B.k],rr=+$("rr").value;
+  POS={as:AS,e,sl:e+risk,tp:e-risk*rr,t:Date.now(),sg0:B.sg};store.set("pos1h",POS);snoozeUntil=0;
+  say("باشه، حواسم هست.","OK, I'm watching your sell.",.7);
+  try{if(window.Notification&&Notification.permission==="default")Notification.requestPermission();}catch(e){}
+  checkPos();};
+$("btnPosClose").onclick=closePos;$("alClosed").onclick=closePos;
+$("alSnooze").onclick=()=>{snoozeUntil=Date.now()+5*6e4;stopAlarm();};
+document.addEventListener("pointerdown",unlockAudio,{once:true});
+renderPos();
 
 /* ===== countdown ===== */
 setInterval(()=>{const ms=tf*6e4,left=ms-Date.now()%ms,hh=Math.floor(left/36e5),m=Math.floor(left%36e5/6e4)+(hh?0:0),s=Math.floor(left%6e4/1000);
